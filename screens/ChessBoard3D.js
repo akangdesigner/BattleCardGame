@@ -18,10 +18,11 @@ import {
   isAdjacent as rulesIsAdjacent,
   PIECE_TYPES as RULE_PIECE_TYPES
 } from './pieceRules';
+import { CardSystem, CARD_TYPES } from './CardSystem';
 
 const BOARD_SIZE = 8;
 const { width: screenWidth, height: screenHeight } = Dimensions.get('window');
-const CELL_SIZE = Math.min(screenWidth / BOARD_SIZE - 1, 50);
+const CELL_SIZE = Math.floor((screenWidth - 40) / BOARD_SIZE);
 
 // 座標轉換函數：將1-8座標轉換為0-7數組索引
 const toArrayIndex = (coord) => {
@@ -92,6 +93,83 @@ const PIECE_TYPES = {
 };
 
 const ChessBoard3D = ({ onBack }) => {
+  // 卡牌系統狀態
+  const [playerHand, setPlayerHand] = useState([]);
+  const [enemyHand, setEnemyHand] = useState([]);
+  const [playerDeck, setPlayerDeck] = useState([]);
+  const [enemyDeck, setEnemyDeck] = useState([]);
+  const [selectedCard, setSelectedCard] = useState(null);
+  const [mana, setMana] = useState({ current: 100, max: 100 });
+
+  // 初始化卡牌系統
+  useEffect(() => {
+    const allCards = Object.values(CARD_TYPES);
+    const shuffledCards = [...allCards].sort(() => Math.random() - 0.5);
+    
+    // 由於只有5張卡片，我們需要重複使用
+    const repeatedCards = [];
+    for (let i = 0; i < 8; i++) {
+      repeatedCards.push(...shuffledCards);
+    }
+    
+    setPlayerDeck(repeatedCards.slice(0, 15));
+    setEnemyDeck(repeatedCards.slice(15, 30));
+    setPlayerHand(repeatedCards.slice(30, 35));
+    setEnemyHand(repeatedCards.slice(35, 40));
+  }, []);
+
+  // 卡牌相關函數 - 只處理選中邏輯
+  const playCard = (card) => {
+    console.log('playCard 被調用:', card ? card.name : 'null', 'currentPlayer:', currentPlayer);
+    if (currentPlayer === 'human') {
+      if (card === null) {
+        // 取消選中
+        console.log('取消選中卡片');
+        setSelectedCard(null);
+      } else if (selectedCard && selectedCard.id === card.id) {
+        // 如果點擊已選中的卡片，取消選中
+        console.log('取消選中已選中的卡片');
+        setSelectedCard(null);
+      } else {
+        // 如果點擊未選中的卡片，則選中它查看說明
+        console.log('選中卡片:', card.name);
+        setSelectedCard(card);
+      }
+    } else {
+      console.log('不是玩家回合，無法選中卡片');
+    }
+  };
+
+  // 移除手牌函數（用於 CardSystem）
+  const removeCard = (card) => {
+    setPlayerHand(prev => prev.filter(c => c.id !== card.id));
+    setSelectedCard(null);
+    setCurrentPlayer('ai');
+    setIsAITurn(true);
+  };
+
+  // 處理選中卡片的出牌（用於 CardSystem）
+  const handleSelectedCardPlay = (card) => {
+    if (card && card.cost && mana.current >= card.cost) {
+      // 消耗法力
+      setMana(prev => ({ ...prev, current: prev.current - card.cost }));
+      // 移除手牌
+      removeCard(card);
+    }
+  };
+
+  const drawCard = (player) => {
+    if (player === 'human' && playerDeck.length > 0 && playerHand.length < 5) {
+      const newCard = playerDeck[0];
+      setPlayerDeck(prev => prev.slice(1));
+      setPlayerHand(prev => [...prev, newCard]);
+    } else if (player === 'ai' && enemyDeck.length > 0 && enemyHand.length < 5) {
+      const newCard = enemyDeck[0];
+      setEnemyDeck(prev => prev.slice(1));
+      setEnemyHand(prev => [...prev, newCard]);
+    }
+  };
+
   // 初始化棋盤狀態
   const [board, setBoard] = useState(() => {
     const initialBoard = Array(BOARD_SIZE).fill(null).map(() => 
@@ -391,6 +469,14 @@ const ChessBoard3D = ({ onBack }) => {
     }
   }, [isAITurn, currentPlayer]);
 
+  // 回合開始時恢復法力值
+  useEffect(() => {
+    if (currentPlayer === 'human') {
+      // 玩家回合開始時恢復法力值
+      setMana(prev => ({ ...prev, current: prev.max }));
+    }
+  }, [currentPlayer]);
+
   const handleCellPress = (row, col) => {
     if (isAITurn || currentPlayer === 'ai') {
       // 等待AI完成回合
@@ -582,6 +668,23 @@ const ChessBoard3D = ({ onBack }) => {
     setSelectedPosition(null);
     setCurrentPlayer('human');
     setIsAITurn(false);
+    
+    // 重製卡牌系統
+    const allCards = Object.values(CARD_TYPES);
+    const shuffledCards = [...allCards].sort(() => Math.random() - 0.5);
+    
+    // 由於只有5張卡片，我們需要重複使用
+    const repeatedCards = [];
+    for (let i = 0; i < 8; i++) {
+      repeatedCards.push(...shuffledCards);
+    }
+    
+    setPlayerDeck(repeatedCards.slice(0, 15));
+    setEnemyDeck(repeatedCards.slice(15, 30));
+    setPlayerHand(repeatedCards.slice(30, 35));
+    setEnemyHand(repeatedCards.slice(35, 40));
+    setSelectedCard(null);
+    setMana({ current: 100, max: 100 });
   };
 
   return (
@@ -620,12 +723,6 @@ const ChessBoard3D = ({ onBack }) => {
           {/* 木質紋理 */}
           <View style={styles.woodTexture} />
           
-          {/* 座標標籤 - 行號 (1-8) */}
-          <View style={styles.rowLabels}>
-            {Array.from({ length: 8 }, (_, i) => (
-              <Text key={i} style={styles.rowLabel}>{8 - i}</Text>
-            ))}
-          </View>
 
           {/* 主棋盤 */}
           <View style={styles.board}>
@@ -648,12 +745,6 @@ const ChessBoard3D = ({ onBack }) => {
             ))}
           </View>
 
-          {/* 座標標籤 - 列號 (1-8) */}
-          <View style={styles.colLabels}>
-            {Array.from({ length: 8 }, (_, i) => (
-              <Text key={i} style={styles.colLabel}>{i + 1}</Text>
-            ))}
-          </View>
         </LinearGradient>
       </View>
       
@@ -665,6 +756,19 @@ const ChessBoard3D = ({ onBack }) => {
       >
         <Text style={styles.resetButtonText}>🔄 重製遊戲</Text>
       </TouchableOpacity>
+
+      {/* 卡牌系統 */}
+      <CardSystem
+        playerHand={playerHand}
+        enemyHand={enemyHand}
+        playerDeck={playerDeck}
+        enemyDeck={enemyDeck}
+        onPlayCard={playCard}
+        onDrawCard={drawCard}
+        selectedCard={selectedCard}
+        mana={mana}
+        onRemoveCard={removeCard}
+      />
       
     </View>
   );
@@ -734,10 +838,15 @@ const styles = StyleSheet.create({
     marginTop: 5,
   },
   board3DContainer: {
-    position: 'relative',
+    position: 'absolute',
+    top: '55%',
+    left: '50%',
+    transform: [{ translateX: -(CELL_SIZE * BOARD_SIZE + 30) / 2 }, { translateY: -(CELL_SIZE * BOARD_SIZE + 30) / 2 }],
     alignItems: 'center',
     justifyContent: 'center',
-    marginBottom: 20,
+    zIndex: 10,
+    width: CELL_SIZE * BOARD_SIZE + 30,
+    height: CELL_SIZE * BOARD_SIZE + 30,
   },
   lightSource: {
     position: 'absolute',
@@ -750,16 +859,18 @@ const styles = StyleSheet.create({
     zIndex: 1,
   },
   boardBase: {
-    padding: 20,
-    borderRadius: 20,
+    padding: 15,
+    borderRadius: 15,
     shadowColor: '#000',
     shadowOffset: {
       width: 0,
-      height: 10,
+      height: 8,
     },
     shadowOpacity: 0.5,
-    shadowRadius: 20,
-    elevation: 15,
+    shadowRadius: 15,
+    elevation: 12,
+    width: '100%',
+    height: '100%',
   },
   woodTexture: {
     position: 'absolute',
@@ -772,51 +883,20 @@ const styles = StyleSheet.create({
     // 這裡可以添加更多木質紋理效果
   },
   board: {
-    borderWidth: 3,
+    borderWidth: 2,
     borderColor: '#2F1B14',
-    borderRadius: 8,
+    borderRadius: 6,
     overflow: 'hidden',
     shadowColor: '#000',
     shadowOffset: {
       width: 0,
-      height: 5,
+      height: 3,
     },
     shadowOpacity: 0.3,
-    shadowRadius: 10,
-    elevation: 8,
-  },
-  rowLabels: {
-    position: 'absolute',
-    left: -30,
-    top: 0,
-    height: '100%',
-    justifyContent: 'space-around',
-    alignItems: 'center',
-  },
-  rowLabel: {
-    fontSize: 14,
-    fontWeight: 'bold',
-    color: '#FFD700',
-    textShadowColor: 'rgba(0, 0, 0, 0.8)',
-    textShadowOffset: { width: 1, height: 1 },
-    textShadowRadius: 2,
-  },
-  colLabels: {
-    position: 'absolute',
-    bottom: -25,
-    left: 0,
-    right: 0,
-    flexDirection: 'row',
-    justifyContent: 'space-around',
-    alignItems: 'center',
-  },
-  colLabel: {
-    fontSize: 14,
-    fontWeight: 'bold',
-    color: '#FFD700',
-    textShadowColor: 'rgba(0, 0, 0, 0.8)',
-    textShadowOffset: { width: 1, height: 1 },
-    textShadowRadius: 2,
+    shadowRadius: 8,
+    elevation: 6,
+    width: CELL_SIZE * BOARD_SIZE,
+    height: CELL_SIZE * BOARD_SIZE,
   },
   row: {
     flexDirection: 'row',
@@ -827,6 +907,8 @@ const styles = StyleSheet.create({
     borderWidth: 0.5,
     borderColor: '#654321',
     position: 'relative',
+    width: CELL_SIZE,
+    height: CELL_SIZE,
   },
   pieceContainer: {
     position: 'relative',
