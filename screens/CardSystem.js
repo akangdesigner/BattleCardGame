@@ -97,11 +97,13 @@ export const CardComponent = ({ card, onPress, isSelected = false, size = 'norma
       return Math.abs(gestureState.dx) > 10 || Math.abs(gestureState.dy) > 10;
     },
     onPanResponderGrant: () => {
-      // 開始拖曳時放大卡片
-      Animated.spring(scaleAnim, {
-        toValue: 1.2,
-        useNativeDriver: true,
-      }).start();
+      // 只有在沒有被選中時才應用拖曳縮放效果
+      if (!isSelected) {
+        Animated.spring(scaleAnim, {
+          toValue: 1.2,
+          useNativeDriver: true,
+        }).start();
+      }
       if (onDrag) onDrag(card);
     },
     onPanResponderMove: (evt, gestureState) => {
@@ -124,11 +126,13 @@ export const CardComponent = ({ card, onPress, isSelected = false, size = 'norma
         }
       }
       
-      // 結束拖曳時恢復原始大小
-      Animated.spring(scaleAnim, {
-        toValue: 1,
-        useNativeDriver: true,
-      }).start();
+      // 只有在沒有被選中時才恢復原始大小（避免覆蓋選中效果）
+      if (!isSelected) {
+        Animated.spring(scaleAnim, {
+          toValue: 1,
+          useNativeDriver: true,
+        }).start();
+      }
       
       // 重置位置
       Animated.spring(pan, {
@@ -151,7 +155,7 @@ export const CardComponent = ({ card, onPress, isSelected = false, size = 'norma
           borderWidth: isSelected ? 4 : 1,
           borderColor: isSelected ? '#FFD700' : '#333',
           transform: [
-            { scale: isDragging ? scaleAnim : scale },
+            { scale: isSelected ? scale : (isDragging ? scaleAnim : 1) },
             { translateX: pan.x },
             { translateY: pan.y }
           ],
@@ -222,9 +226,7 @@ export const HandArea = ({ cards, onCardPress, selectedCard, isEnemy = false, on
           <View key={`${isEnemy ? 'enemy' : 'player'}-hand-${card.id}-${index}`} style={styles.cardWrapper}>
             {isEnemy ? (
               // 敵方手牌顯示牌背
-              <View style={[styles.enemyCardBack, { width: 40, height: 60 }]}>
-                <Text style={styles.cardBackText}>?</Text>
-              </View>
+              <View style={[styles.enemyCardBack, { width: 40, height: 60 }]} />
             ) : (
               // 玩家手牌顯示正常卡片
               <CardComponent
@@ -259,7 +261,11 @@ export const CardSystem = ({
   onDrawCard, 
   selectedCard, 
   mana,
-  onRemoveCard // 新增：用於移除手牌的函數
+  onRemoveCard, // 新增：用於移除手牌的函數
+  onEndTurn, // 新增：結束回合的函數
+  currentPlayer, // 新增：當前玩家
+  aiPlayedCard, // 新增：AI出的牌
+  showAiPlayedCard // 新增：是否顯示AI出牌動畫
 }) => {
   // 拖曳狀態
   const [draggingCard, setDraggingCard] = useState(null);
@@ -398,6 +404,17 @@ export const CardSystem = ({
             isEnemy={false}
           />
         </View>
+
+        {/* 結束回合按鈕 - 只在玩家回合顯示 */}
+        {currentPlayer === 'human' && onEndTurn && (
+          <TouchableOpacity 
+            style={styles.endTurnButton}
+            onPress={onEndTurn}
+            activeOpacity={0.8}
+          >
+            <Text style={styles.endTurnButtonText}>結束回合</Text>
+          </TouchableOpacity>
+        )}
       </View>
       
       {/* 選中的卡片 - 固定定位，根據卡片索引 */}
@@ -422,6 +439,20 @@ export const CardSystem = ({
               isSelected={false}
             />
             <Text style={styles.playedCardText}>打出 {playedCard.name}!</Text>
+          </Animated.View>
+        </View>
+      )}
+      
+      {/* AI出牌的中央顯示 */}
+      {showAiPlayedCard && aiPlayedCard && (
+        <View style={styles.playedCardOverlay}>
+          <Animated.View style={styles.playedCardContainer}>
+            <CardComponent
+              card={aiPlayedCard}
+              size="large"
+              isSelected={false}
+            />
+            <Text style={styles.playedCardText}>AI打出 {aiPlayedCard.name}!</Text>
           </Animated.View>
         </View>
       )}
@@ -500,10 +531,10 @@ const styles = StyleSheet.create({
   closeButton: {
     position: 'absolute',
     top: -8,
-    right: -8,
-    width: 20,
-    height: 20,
-    borderRadius: 10,
+    right: -12,
+    width: 14,
+    height: 14,
+    borderRadius: 7,
     backgroundColor: '#E74C3C',
     justifyContent: 'center',
     alignItems: 'center',
@@ -512,8 +543,10 @@ const styles = StyleSheet.create({
   },
   closeButtonText: {
     color: '#FFFFFF',
-    fontSize: 12,
+    fontSize: 10,
     fontWeight: 'bold',
+    textAlign: 'center',
+    lineHeight: 10,
   },
   selectedCardContainer: {
     position: 'absolute',
@@ -703,5 +736,32 @@ const styles = StyleSheet.create({
     textShadowColor: '#000',
     textShadowOffset: { width: 1, height: 1 },
     textShadowRadius: 3,
+  },
+  // 結束回合按鈕樣式
+  endTurnButton: {
+    position: 'absolute',
+    bottom: 10,
+    left: '50%',
+    transform: [{ translateX: -60 }], // 居中對齊
+    backgroundColor: '#E74C3C',
+    paddingHorizontal: 20,
+    paddingVertical: 12,
+    borderRadius: 25,
+    shadowColor: '#000',
+    shadowOffset: {
+      width: 0,
+      height: 4,
+    },
+    shadowOpacity: 0.3,
+    shadowRadius: 8,
+    elevation: 8,
+    borderWidth: 2,
+    borderColor: '#C0392B',
+  },
+  endTurnButtonText: {
+    color: '#FFFFFF',
+    fontSize: 16,
+    fontWeight: 'bold',
+    textAlign: 'center',
   },
 });
