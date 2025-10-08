@@ -31,12 +31,14 @@ const styles = StyleSheet.create({
     alignItems: 'center',
   },
   soldierImage: {
-    width: 60,
-    height: 60,
+    width: 70,
+    height: 70,
     shadowColor: '#000000',
     shadowOffset: { width: 2, height: 4 },
     shadowOpacity: 0.5,
     shadowRadius: 3,
+    // 向上移動到格子上方
+    transform: [{ translateY: -15 }],
     // 移除 elevation，因為 Image 不支援
   },
   selectedImage: {

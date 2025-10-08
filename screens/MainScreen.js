@@ -10,7 +10,7 @@ import { LinearGradient } from 'expo-linear-gradient';
 
 const { width: screenWidth, height: screenHeight } = Dimensions.get('window');
 
-const MainScreen = ({ onStartGame, onPieceIntro }) => {
+const MainScreen = ({ onStartGame, onPieceIntro, onDeckBuilder }) => {
   return (
     <LinearGradient
       colors={['#1a1a1a', '#2d2d2d', '#1a1a1a']}
@@ -40,6 +40,23 @@ const MainScreen = ({ onStartGame, onPieceIntro }) => {
             >
               <Text style={styles.buttonText}>開始對戰</Text>
               <Text style={styles.buttonSubText}>Start Battle</Text>
+            </LinearGradient>
+          </TouchableOpacity>
+
+          {/* 編制棋組按鈕 */}
+          <TouchableOpacity
+            style={styles.secondaryButton}
+            onPress={onDeckBuilder}
+            activeOpacity={0.8}
+          >
+            <LinearGradient
+              colors={['#9370DB', '#8A2BE2', '#6A1B9A']}
+              style={styles.buttonGradient}
+              start={{ x: 0, y: 0 }}
+              end={{ x: 1, y: 1 }}
+            >
+              <Text style={styles.buttonText}>編制棋組</Text>
+              <Text style={styles.buttonSubText}>Deck Builder</Text>
             </LinearGradient>
           </TouchableOpacity>
 

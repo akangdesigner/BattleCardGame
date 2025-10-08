@@ -6,10 +6,12 @@ import MainScreen from './screens/MainScreen';
 import GameModeSelection from './screens/GameModeSelection';
 import PieceIntroduction from './screens/PieceIntroduction';
 import ChessBoard3D from './screens/ChessBoard3D';
+import DeckBuilderScreen from './screens/DeckBuilderScreen';
 
 export default function App() {
   const [currentScreen, setCurrentScreen] = useState('main');
   const [gameMode, setGameMode] = useState(null);
+  const [playerDeck, setPlayerDeck] = useState(['S', 'A', 'M', 'K', 'P', 'AS', 'MT']); // 默認棋組
 
   const navigateToScreen = (screen) => {
     setCurrentScreen(screen);
@@ -21,6 +23,15 @@ export default function App() {
 
   const handlePieceIntro = () => {
     navigateToScreen('pieceIntro');
+  };
+
+  const handleDeckBuilder = () => {
+    navigateToScreen('deckBuilder');
+  };
+
+  const handleSaveDeck = (newDeck) => {
+    setPlayerDeck(newDeck);
+    console.log('棋組已保存:', newDeck);
   };
 
   const handleSelectGameMode = (mode) => {
@@ -44,6 +55,7 @@ export default function App() {
           <MainScreen
             onStartGame={handleStartGame}
             onPieceIntro={handlePieceIntro}
+            onDeckBuilder={handleDeckBuilder}
           />
         );
       case 'gameMode':
@@ -59,6 +71,13 @@ export default function App() {
             onBack={handleBackToMain}
           />
         );
+      case 'deckBuilder':
+        return (
+          <DeckBuilderScreen
+            onBack={handleBackToMain}
+            onSaveDeck={handleSaveDeck}
+          />
+        );
       case 'game':
         return (
           <ChessBoard3D
@@ -71,6 +90,7 @@ export default function App() {
           <MainScreen
             onStartGame={handleStartGame}
             onPieceIntro={handlePieceIntro}
+            onDeckBuilder={handleDeckBuilder}
           />
         );
     }

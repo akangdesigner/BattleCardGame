@@ -6,14 +6,14 @@ const { width: screenWidth } = Dimensions.get('window');
 const BOARD_SIZE = 8;
 const CELL_SIZE = Math.min(screenWidth / BOARD_SIZE - 1, 50);
 
-const ArcherPiece = ({ isSelected, isHighlighted }) => {
+const MindTwisterPiece = ({ isSelected, isHighlighted }) => {
   return (
     <View style={styles.container}>
-      {/* 使用您的弓箭手圖片 */}
+      {/* 心智扭曲者圖片 */}
       <Image
-        source={require('../../assets/image/arror.png')}
+        source={require('../../assets/image/Mindbender.png')}
         style={[
-          styles.archerImage,
+          styles.mindtwisterImage,
           isSelected && styles.selectedImage,
           isHighlighted && styles.highlightedImage,
         ]}
@@ -30,7 +30,7 @@ const styles = StyleSheet.create({
     justifyContent: 'center',
     alignItems: 'center',
   },
-  archerImage: {
+  mindtwisterImage: {
     width: 70,
     height: 70,
     shadowColor: '#000000',
@@ -39,7 +39,6 @@ const styles = StyleSheet.create({
     shadowRadius: 3,
     // 向上移動到格子上方
     transform: [{ translateY: -15 }],
-    // 移除 elevation，因為 Image 不支援
   },
   selectedImage: {
     transform: [{ scale: 1.1 }],
@@ -55,4 +54,4 @@ const styles = StyleSheet.create({
   },
 });
 
-export default ArcherPiece;
+export default MindTwisterPiece;

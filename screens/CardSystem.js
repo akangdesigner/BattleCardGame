@@ -67,6 +67,39 @@ export const CARD_TYPES = {
     color: '#2F4F4F',
     icon: '🐎',
     image: '🐎'
+  },
+  PRIEST: {
+    id: 'PRIEST',
+    name: '牧師',
+    description: '治療與支援單位',
+    cost: 3,
+    attack: 1,
+    health: 3,
+    color: '#FFFFFF',
+    icon: '⛪',
+    image: 'priest'
+  },
+  ASSASSIN: {
+    id: 'ASSASSIN',
+    name: '刺客',
+    description: '隱身與暗殺單位',
+    cost: 4,
+    attack: 3,
+    health: 1,
+    color: '#2C2C2C',
+    icon: '🗡️',
+    image: 'assassin'
+  },
+  MIND_TWISTER: {
+    id: 'MIND_TWISTER',
+    name: '心智扭曲者',
+    description: '精神控制單位',
+    cost: 6,
+    attack: 2,
+    health: 4,
+    color: '#8A2BE2',
+    icon: '🌀',
+    image: 'mindtwister'
   }
 };
 

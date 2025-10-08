@@ -84,6 +84,36 @@ const PIECE_TYPES = {
     skill: '高機動性，快速移動',
     description: '敏捷的騎士，擁有出色的機動能力',
   },
+  P: { 
+    name: '牧師', 
+    color: '#FFFFFF', // 白色
+    darkColor: '#E0E0E0',
+    symbol: 'P',
+    material: 'gold',
+    category: '支援型',
+    skill: '治療與支援單位',
+    description: '神聖的牧師，擁有治療和支援能力',
+  },
+  AS: { 
+    name: '刺客', 
+    color: '#2C2C2C', // 深灰色
+    darkColor: '#1A1A1A',
+    symbol: 'AS',
+    material: 'obsidian',
+    category: '暗殺型',
+    skill: '隱身與暗殺單位',
+    description: '神秘的刺客，擅長隱身和暗殺',
+  },
+  MT: { 
+    name: '心智扭曲者', 
+    color: '#8A2BE2', // 紫色
+    darkColor: '#6A1B9A',
+    symbol: 'MT',
+    material: 'crystal',
+    category: '控制型',
+    skill: '精神控制單位',
+    description: '邪惡的心智扭曲者，能夠控制敵人思想',
+  },
   empty: { 
     name: '空', 
     color: 'transparent', 
@@ -239,18 +269,32 @@ const ChessBoard3D = ({ onBack }) => {
     );
     
     // 設置初始棋子位置 - 玩家方（第5-7行）
-    initialBoard[6][2] = 'S'; // 玩家士兵
-    initialBoard[7][2] = 'A'; // 玩家弓箭手
-    initialBoard[7][3] = 'W'; // 玩家戰士
-    initialBoard[7][4] = 'M'; // 玩家法師
-    initialBoard[7][5] = 'K'; // 玩家騎士
+    initialBoard[6][1] = 'S'; // 玩家士兵
+    initialBoard[7][1] = 'A'; // 玩家弓箭手
+    initialBoard[7][2] = 'W'; // 玩家戰士
+    initialBoard[7][3] = 'M'; // 玩家法師
+    initialBoard[7][4] = 'K'; // 玩家騎士
+    initialBoard[6][2] = 'P'; // 玩家牧師
+    initialBoard[6][3] = 'AS'; // 玩家刺客
+    initialBoard[6][4] = 'MT'; // 玩家心智扭曲者
     
     // 設置初始棋子位置 - AI方（第0-2行）
-    initialBoard[0][2] = 'S'; // AI士兵
-    initialBoard[1][2] = 'A'; // AI弓箭手
-    initialBoard[1][3] = 'W'; // AI戰士
-    initialBoard[1][4] = 'M'; // AI法師
-    initialBoard[1][5] = 'K'; // AI騎士
+    initialBoard[0][1] = 'S'; // AI士兵
+    initialBoard[1][1] = 'A'; // AI弓箭手
+    initialBoard[1][2] = 'W'; // AI戰士
+    initialBoard[1][3] = 'M'; // AI法師
+    initialBoard[1][4] = 'K'; // AI騎士
+    initialBoard[0][2] = 'P'; // AI牧師
+    initialBoard[0][3] = 'AS'; // AI刺客
+    initialBoard[0][4] = 'MT'; // AI心智扭曲者
+    
+    console.log('棋盤初始化完成，新棋子位置:');
+    console.log('玩家牧師:', initialBoard[6][2], '位置 [6][2]');
+    console.log('玩家刺客:', initialBoard[6][3], '位置 [6][3]');
+    console.log('玩家心智扭曲者:', initialBoard[6][4], '位置 [6][4]');
+    console.log('AI牧師:', initialBoard[0][2], '位置 [0][2]');
+    console.log('AI刺客:', initialBoard[0][3], '位置 [0][3]');
+    console.log('AI心智扭曲者:', initialBoard[0][4], '位置 [0][4]');
     
     return initialBoard;
   });
@@ -663,8 +707,11 @@ const ChessBoard3D = ({ onBack }) => {
 
   // 簡化的棋子組件
   const Piece3D = ({ piece, row, col, isSelected, isHighlighted }) => {
-    // 移除複雜動畫以避免回調問題
-
+    // 修正Z軸層級 - 前面的棋子（row值大）應該有更高的zIndex
+    // row 7 (最前面) = zIndex 17, row 6 = zIndex 16, ..., row 0 (最後面) = zIndex 10
+    const baseZIndex = 17 - (7 - row); // 前面的行有更高的zIndex
+    const zIndex = isSelected ? baseZIndex + 20 : baseZIndex;
+    
     if (piece === 'empty') {
       return (
         <TouchableOpacity
@@ -693,13 +740,13 @@ const ChessBoard3D = ({ onBack }) => {
               : (row + col) % 2 === 0 ? '#F5DEB3' : '#8B4513',
             width: CELL_SIZE,
             height: CELL_SIZE,
+            zIndex: zIndex,
           },
         ]}
         onPress={() => handleCellPress(row, col)}
         activeOpacity={0.8}
       >
         <View style={styles.pieceContainer}>
-
           {/* 使用統一的棋子管理器 */}
           <PieceManager 
             piece={piece}
@@ -718,18 +765,24 @@ const ChessBoard3D = ({ onBack }) => {
     );
     
     // 重新設置初始棋子位置 - 玩家方（第5-7行）
-    initialBoard[6][2] = 'S'; // 玩家士兵
-    initialBoard[7][2] = 'A'; // 玩家弓箭手
-    initialBoard[7][3] = 'W'; // 玩家戰士
-    initialBoard[7][4] = 'M'; // 玩家法師
-    initialBoard[7][5] = 'K'; // 玩家騎士
+    initialBoard[6][1] = 'S'; // 玩家士兵
+    initialBoard[7][1] = 'A'; // 玩家弓箭手
+    initialBoard[7][2] = 'W'; // 玩家戰士
+    initialBoard[7][3] = 'M'; // 玩家法師
+    initialBoard[7][4] = 'K'; // 玩家騎士
+    initialBoard[6][2] = 'P'; // 玩家牧師
+    initialBoard[6][3] = 'AS'; // 玩家刺客
+    initialBoard[6][4] = 'MT'; // 玩家心智扭曲者
     
     // 重新設置初始棋子位置 - AI方（第0-2行）
-    initialBoard[0][2] = 'S'; // AI士兵
-    initialBoard[1][2] = 'A'; // AI弓箭手
-    initialBoard[1][3] = 'W'; // AI戰士
-    initialBoard[1][4] = 'M'; // AI法師
-    initialBoard[1][5] = 'K'; // AI騎士
+    initialBoard[0][1] = 'S'; // AI士兵
+    initialBoard[1][1] = 'A'; // AI弓箭手
+    initialBoard[1][2] = 'W'; // AI戰士
+    initialBoard[1][3] = 'M'; // AI法師
+    initialBoard[1][4] = 'K'; // AI騎士
+    initialBoard[0][2] = 'P'; // AI牧師
+    initialBoard[0][3] = 'AS'; // AI刺客
+    initialBoard[0][4] = 'MT'; // AI心智扭曲者
     
     setBoard(initialBoard);
     
@@ -802,7 +855,7 @@ const ChessBoard3D = ({ onBack }) => {
         )}
       </View>
 
-      {/* 簡化棋盤容器 */}
+      {/* 增強透視效果的棋盤容器 */}
       <View style={styles.board3DContainer}>
         {/* 棋盤底座 */}
         <LinearGradient
@@ -814,6 +867,8 @@ const ChessBoard3D = ({ onBack }) => {
           {/* 木質紋理 */}
           <View style={styles.woodTexture} />
           
+          {/* 透視光源效果 */}
+          <View style={styles.perspectiveLight} />
 
           {/* 主棋盤 */}
           <View style={styles.board}>
@@ -936,7 +991,10 @@ const styles = StyleSheet.create({
     position: 'absolute',
     top: '55%',
     left: '50%',
-    transform: [{ translateX: -(CELL_SIZE * BOARD_SIZE + 30) / 2 }, { translateY: -(CELL_SIZE * BOARD_SIZE + 30) / 2 }],
+    transform: [
+      { translateX: -(CELL_SIZE * BOARD_SIZE + 30) / 2 }, 
+      { translateY: -(CELL_SIZE * BOARD_SIZE + 30) / 2 },
+    ],
     alignItems: 'center',
     justifyContent: 'center',
     zIndex: 10,
@@ -952,6 +1010,21 @@ const styles = StyleSheet.create({
     top: -50,
     left: -50,
     zIndex: 1,
+  },
+  perspectiveLight: {
+    position: 'absolute',
+    width: 200,
+    height: 200,
+    borderRadius: 100,
+    backgroundColor: 'rgba(255, 255, 255, 0.05)',
+    top: -100,
+    left: -100,
+    zIndex: 2,
+    shadowColor: 'rgba(255, 255, 255, 0.3)',
+    shadowOffset: { width: 0, height: 0 },
+    shadowOpacity: 0.5,
+    shadowRadius: 50,
+    elevation: 5,
   },
   boardBase: {
     padding: 15,
@@ -981,20 +1054,21 @@ const styles = StyleSheet.create({
     borderWidth: 2,
     borderColor: '#2F1B14',
     borderRadius: 6,
-    overflow: 'hidden',
+    overflow: 'visible', // 允許棋子超出棋盤邊界
     shadowColor: '#000',
     shadowOffset: {
       width: 0,
-      height: 3,
+      height: 8,
     },
-    shadowOpacity: 0.3,
-    shadowRadius: 8,
-    elevation: 6,
+    shadowOpacity: 0.4,
+    shadowRadius: 12,
+    elevation: 8,
     width: CELL_SIZE * BOARD_SIZE,
     height: CELL_SIZE * BOARD_SIZE,
   },
   row: {
     flexDirection: 'row',
+    position: 'relative',
   },
   cell: {
     justifyContent: 'center',
@@ -1004,11 +1078,13 @@ const styles = StyleSheet.create({
     position: 'relative',
     width: CELL_SIZE,
     height: CELL_SIZE,
+    overflow: 'visible', // 允許棋子超出格子邊界
   },
   pieceContainer: {
     position: 'relative',
-    width: CELL_SIZE * 0.9,
-    height: CELL_SIZE * 0.9,
+    width: CELL_SIZE * 0.95,
+    height: CELL_SIZE * 0.95,
+    overflow: 'visible', // 允許棋子內容超出容器邊界
   },
   emptyPiece: {
     width: '100%',
