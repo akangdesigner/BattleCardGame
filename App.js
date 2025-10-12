@@ -11,7 +11,12 @@ import DeckBuilderScreen from './screens/DeckBuilderScreen';
 export default function App() {
   const [currentScreen, setCurrentScreen] = useState('main');
   const [gameMode, setGameMode] = useState(null);
-  const [playerDeck, setPlayerDeck] = useState(['S', 'A', 'M', 'K', 'P', 'AS', 'MT']); // 默認棋組
+  const [playerDeck, setPlayerDeck] = useState({ 
+    pieces: ['S', 'SM', 'A', 'M', 'K', 'P'],
+    frontRowPieces: ['S', 'SM'],
+    specialPieces: ['A', 'M', 'K', 'P'],
+    name: '默認棋組' 
+  }); // 默認棋組（6個棋子：前排2個基礎型 + 特殊4個特殊型）
 
   const navigateToScreen = (screen) => {
     setCurrentScreen(screen);
@@ -34,8 +39,15 @@ export default function App() {
     console.log('棋組已保存:', newDeck);
   };
 
-  const handleSelectGameMode = (mode) => {
+  const handleSelectGameMode = (mode, selectedDeck = null) => {
+    console.log('選擇遊戲模式:', mode, '棋組:', selectedDeck);
     setGameMode(mode);
+    if (selectedDeck && selectedDeck.pieces) {
+      setPlayerDeck(selectedDeck);
+      console.log('設置棋組:', selectedDeck);
+    } else {
+      console.log('沒有選擇棋組，使用默認棋組');
+    }
     navigateToScreen('game');
   };
 
@@ -83,6 +95,7 @@ export default function App() {
           <ChessBoard3D
             onBack={handleBackToGameMode}
             gameMode={gameMode}
+            playerDeck={playerDeck}
           />
         );
       default:

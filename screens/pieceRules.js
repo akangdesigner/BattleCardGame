@@ -16,10 +16,17 @@ export const DIRECTIONS = {
 // 棋子類型枚舉
 export const PIECE_TYPES = {
   S: 'S', // 士兵
-  W: 'W', // 戰士
   A: 'A', // 弓箭手
   M: 'M', // 法師
   K: 'K', // 騎士
+  P: 'P', // 牧師
+  AS: 'AS', // 刺客
+  MT: 'MT', // 心智扭曲者
+  CB: 'CB', // 弩手
+  SM: 'SM', // 太刀武士
+  WA: 'WA', // 戰爭建築師
+  SD: 'SD', // 睏睏狗
+  CC: 'CC', // 食人螃蟹
   EMPTY: 'empty'
 };
 
@@ -30,30 +37,31 @@ export const PIECE_RULES = {
     moveRange: 1, // 移動範圍：1格
     moveDirections: [DIRECTIONS.UP, DIRECTIONS.DOWN, DIRECTIONS.LEFT, DIRECTIONS.RIGHT], // 只能上下左右移動
     attackRange: 1, // 攻擊範圍：1格
+    attackDistance: 1, // 攻擊距離：1格
     attackDirections: [DIRECTIONS.UP, DIRECTIONS.DOWN, DIRECTIONS.LEFT, DIRECTIONS.RIGHT], // 只能攻擊相鄰格子
+    attackPower: 50, // 攻擊力：50
+    maxHealth: 200, // 最大血量：200（近戰）
+    health: 200, // 當前血量：200
+    attackType: 'melee', // 攻擊類型：近戰
+    category: 'basic', // 分類：基礎型
     specialRules: {
       // 士兵沒有特殊規則
     }
   },
   
-  [PIECE_TYPES.W]: {
-    name: '戰士',
-    moveRange: 1,
-    moveDirections: [DIRECTIONS.UP, DIRECTIONS.DOWN, DIRECTIONS.LEFT, DIRECTIONS.RIGHT],
-    attackRange: 1,
-    attackDirections: [DIRECTIONS.UP, DIRECTIONS.DOWN, DIRECTIONS.LEFT, DIRECTIONS.RIGHT],
-    specialRules: {
-      firstAttackImmunity: true, // 第一次被攻擊不會死亡
-      protection: true // 可以保護相鄰的己方棋子
-    }
-  },
   
   [PIECE_TYPES.A]: {
     name: '弓箭手',
     moveRange: 2, // 移動範圍：2格
     moveDirections: [DIRECTIONS.UP, DIRECTIONS.DOWN, DIRECTIONS.LEFT, DIRECTIONS.RIGHT],
     attackRange: 3, // 攻擊範圍：3格
+    attackDistance: 3, // 攻擊距離：3格
     attackDirections: [DIRECTIONS.UP, DIRECTIONS.DOWN, DIRECTIONS.LEFT, DIRECTIONS.RIGHT],
+    attackPower: 50, // 攻擊力：50
+    maxHealth: 100, // 最大血量：100（遠程）
+    health: 100, // 當前血量：100
+    attackType: 'ranged', // 攻擊類型：遠程
+    category: 'special', // 分類：特殊型
     specialRules: {
       requiresAllyInFront: true, // 攻擊時前方需要有己方棋子
       canAttackOverPieces: true, // 可以越過棋子攻擊
@@ -66,10 +74,16 @@ export const PIECE_RULES = {
     moveRange: 1,
     moveDirections: [DIRECTIONS.UP, DIRECTIONS.DOWN, DIRECTIONS.LEFT, DIRECTIONS.RIGHT],
     attackRange: 2, // 攻擊範圍：2格
+    attackDistance: 2, // 攻擊距離：2格
     attackDirections: [
       DIRECTIONS.UP, DIRECTIONS.DOWN, DIRECTIONS.LEFT, DIRECTIONS.RIGHT,
       DIRECTIONS.UP_LEFT, DIRECTIONS.UP_RIGHT, DIRECTIONS.DOWN_LEFT, DIRECTIONS.DOWN_RIGHT
     ],
+    attackPower: 50, // 攻擊力：50
+    maxHealth: 100, // 最大血量：100（遠程魔法）
+    health: 100, // 當前血量：100
+    attackType: 'ranged', // 攻擊類型：遠程魔法
+    category: 'special', // 分類：特殊型
     specialRules: {
       areaAttack: true, // 範圍攻擊
       canAttackOverPieces: true // 可以越過棋子攻擊
@@ -81,10 +95,167 @@ export const PIECE_RULES = {
     moveRange: 3, // 移動範圍：3格
     moveDirections: [DIRECTIONS.UP, DIRECTIONS.DOWN, DIRECTIONS.LEFT, DIRECTIONS.RIGHT],
     attackRange: 1,
+    attackDistance: 1, // 攻擊距離：1格
     attackDirections: [DIRECTIONS.UP, DIRECTIONS.DOWN, DIRECTIONS.LEFT, DIRECTIONS.RIGHT],
+    attackPower: 50, // 攻擊力：50
+    maxHealth: 100, // 最大血量：100（特殊型）
+    health: 100, // 當前血量：100
+    attackType: 'melee', // 攻擊類型：近戰
+    category: 'special', // 分類：特殊型
     specialRules: {
       highMobility: true, // 高機動性
       canMoveThroughPieces: false // 不能穿過其他棋子
+    }
+  },
+
+  [PIECE_TYPES.P]: {
+    name: '牧師',
+    moveRange: 1, // 移動範圍：1格
+    moveDirections: [DIRECTIONS.UP, DIRECTIONS.DOWN, DIRECTIONS.LEFT, DIRECTIONS.RIGHT],
+    attackRange: 1, // 攻擊範圍：1格
+    attackDistance: 1, // 攻擊距離：1格
+    attackDirections: [DIRECTIONS.UP, DIRECTIONS.DOWN, DIRECTIONS.LEFT, DIRECTIONS.RIGHT],
+    attackPower: 50, // 攻擊力：50
+    maxHealth: 100, // 最大血量：100（遠程）
+    health: 100, // 當前血量：100
+    attackType: 'ranged', // 攻擊類型：遠程
+    category: 'special', // 分類：特殊型
+    specialRules: {
+      healing: true, // 可以治療己方棋子
+      canHealAdjacent: true // 可以治療相鄰的己方棋子
+    }
+  },
+
+  [PIECE_TYPES.AS]: {
+    name: '刺客',
+    moveRange: 2, // 移動範圍：2格
+    moveDirections: [DIRECTIONS.UP, DIRECTIONS.DOWN, DIRECTIONS.LEFT, DIRECTIONS.RIGHT],
+    attackRange: 1, // 攻擊範圍：1格
+    attackDistance: 1, // 攻擊距離：1格
+    attackDirections: [DIRECTIONS.UP, DIRECTIONS.DOWN, DIRECTIONS.LEFT, DIRECTIONS.RIGHT],
+    attackPower: 50, // 攻擊力：50
+    maxHealth: 100, // 最大血量：100（遠程）
+    health: 100, // 當前血量：100
+    attackType: 'ranged', // 攻擊類型：遠程
+    category: 'special', // 分類：特殊型
+    specialRules: {
+      stealth: true, // 隱身能力
+      canMoveThroughPieces: true, // 可以穿過棋子移動
+      highDamage: true // 高攻擊力
+    }
+  },
+
+  [PIECE_TYPES.MT]: {
+    name: '心智扭曲者',
+    moveRange: 1, // 移動範圍：1格
+    moveDirections: [DIRECTIONS.UP, DIRECTIONS.DOWN, DIRECTIONS.LEFT, DIRECTIONS.RIGHT],
+    attackRange: 2, // 攻擊範圍：2格
+    attackDistance: 2, // 攻擊距離：2格
+    attackDirections: [DIRECTIONS.UP, DIRECTIONS.DOWN, DIRECTIONS.LEFT, DIRECTIONS.RIGHT],
+    attackPower: 50, // 攻擊力：50
+    maxHealth: 100, // 最大血量：100（遠程）
+    health: 100, // 當前血量：100
+    attackType: 'ranged', // 攻擊類型：遠程
+    category: 'special', // 分類：特殊型
+    specialRules: {
+      mindControl: true, // 精神控制
+      canControlEnemy: true, // 可以控制敵方棋子
+      areaEffect: true // 範圍效果
+    }
+  },
+
+  [PIECE_TYPES.CB]: {
+    name: '弩手',
+    moveRange: 1, // 移動範圍：1格
+    moveDirections: [DIRECTIONS.UP, DIRECTIONS.DOWN, DIRECTIONS.LEFT, DIRECTIONS.RIGHT],
+    attackRange: 3, // 攻擊範圍：3格
+    attackDistance: 3, // 攻擊距離：3格
+    attackDirections: [DIRECTIONS.UP, DIRECTIONS.DOWN, DIRECTIONS.LEFT, DIRECTIONS.RIGHT],
+    attackPower: 50, // 攻擊力：50
+    maxHealth: 100, // 最大血量：100（遠程）
+    health: 100, // 當前血量：100
+    attackType: 'ranged', // 攻擊類型：遠程
+    category: 'special', // 分類：特殊型
+    specialRules: {
+      cannotAttackAdjacent: true, // 不能攻擊相鄰的敵人
+      canAttackOverPieces: true, // 可以越過棋子攻擊
+      longRange: true // 遠程攻擊
+    }
+  },
+
+  [PIECE_TYPES.SM]: {
+    name: '太刀武士',
+    moveRange: 2, // 移動範圍：2格
+    moveDirections: [DIRECTIONS.UP, DIRECTIONS.DOWN, DIRECTIONS.LEFT, DIRECTIONS.RIGHT],
+    attackRange: 2, // 攻擊範圍：2格
+    attackDistance: 2, // 攻擊距離：2格
+    attackDirections: [DIRECTIONS.UP, DIRECTIONS.DOWN, DIRECTIONS.LEFT, DIRECTIONS.RIGHT],
+    attackPower: 50, // 攻擊力：50
+    maxHealth: 200, // 最大血量：200（近戰）
+    health: 200, // 當前血量：200
+    attackType: 'melee', // 攻擊類型：近戰
+    category: 'basic', // 分類：基礎型
+    specialRules: {
+      highAttack: true, // 高攻擊力
+      canAttackOverPieces: false, // 不能越過棋子攻擊
+      skilledWarrior: true // 熟練戰士
+    }
+  },
+
+  [PIECE_TYPES.WA]: {
+    name: '戰爭建築師',
+    moveRange: 1, // 移動範圍：1格
+    moveDirections: [DIRECTIONS.UP, DIRECTIONS.DOWN, DIRECTIONS.LEFT, DIRECTIONS.RIGHT],
+    attackRange: 1, // 攻擊範圍：1格
+    attackDistance: 1, // 攻擊距離：1格
+    attackDirections: [DIRECTIONS.UP, DIRECTIONS.DOWN, DIRECTIONS.LEFT, DIRECTIONS.RIGHT],
+    attackPower: 50, // 攻擊力：50
+    maxHealth: 100, // 最大血量：100（遠程）
+    health: 100, // 當前血量：100
+    attackType: 'ranged', // 攻擊類型：遠程
+    category: 'special', // 分類：特殊型
+    specialRules: {
+      construction: true, // 建設能力
+      canBuildDefenses: true, // 可以建造防禦設施
+      supportRole: true // 支援角色
+    }
+  },
+
+  [PIECE_TYPES.SD]: {
+    name: '睏睏狗',
+    moveRange: 1, // 移動範圍：1格
+    moveDirections: [DIRECTIONS.UP, DIRECTIONS.DOWN, DIRECTIONS.LEFT, DIRECTIONS.RIGHT],
+    attackRange: 1, // 攻擊範圍：1格
+    attackDistance: 1, // 攻擊距離：1格
+    attackDirections: [DIRECTIONS.UP, DIRECTIONS.DOWN, DIRECTIONS.LEFT, DIRECTIONS.RIGHT],
+    attackPower: 50, // 攻擊力：50
+    maxHealth: 200, // 最大血量：200（近戰）
+    health: 200, // 當前血量：200
+    attackType: 'melee', // 攻擊類型：近戰
+    category: 'basic', // 分類：基礎型
+    specialRules: {
+      sleep: true, // 催眠能力
+      canSleepEnemy: true, // 可以使敵人睡眠
+      areaEffect: true // 範圍效果
+    }
+  },
+
+  [PIECE_TYPES.CC]: {
+    name: '食人螃蟹',
+    moveRange: 1, // 移動範圍：1格
+    moveDirections: [DIRECTIONS.UP, DIRECTIONS.DOWN, DIRECTIONS.LEFT, DIRECTIONS.RIGHT],
+    attackRange: 1, // 攻擊範圍：1格
+    attackDistance: 1, // 攻擊距離：1格
+    attackDirections: [DIRECTIONS.UP, DIRECTIONS.DOWN, DIRECTIONS.LEFT, DIRECTIONS.RIGHT],
+    attackPower: 50, // 攻擊力：50
+    maxHealth: 200, // 最大血量：200（近戰）
+    health: 200, // 當前血量：200
+    attackType: 'melee', // 攻擊類型：近戰
+    category: 'basic', // 分類：基礎型
+    specialRules: {
+      strongDefense: true, // 強防禦
+      highHealth: true, // 高血量
+      canDefend: true // 可以防禦
     }
   }
 };
@@ -112,6 +283,36 @@ export const getPieceAttackDirections = (pieceType) => {
 // 獲取棋子的特殊規則
 export const getPieceSpecialRules = (pieceType) => {
   return PIECE_RULES[pieceType]?.specialRules || {};
+};
+
+// 獲取棋子的最大血量
+export const getPieceMaxHealth = (pieceType) => {
+  return PIECE_RULES[pieceType]?.maxHealth || 100;
+};
+
+// 獲取棋子的當前血量
+export const getPieceHealth = (pieceType) => {
+  return PIECE_RULES[pieceType]?.health || 100;
+};
+
+// 獲取棋子的攻擊類型
+export const getPieceAttackType = (pieceType) => {
+  return PIECE_RULES[pieceType]?.attackType || 'melee';
+};
+
+// 獲取棋子的分類
+export const getPieceCategory = (pieceType) => {
+  return PIECE_RULES[pieceType]?.category || 'special';
+};
+
+// 獲取棋子的攻擊距離
+export const getPieceAttackDistance = (pieceType) => {
+  return PIECE_RULES[pieceType]?.attackDistance || 1;
+};
+
+// 獲取棋子的攻擊力
+export const getPieceAttackPower = (pieceType) => {
+  return PIECE_RULES[pieceType]?.attackPower || 50;
 };
 
 // 檢查位置是否在棋盤範圍內
@@ -181,14 +382,15 @@ export const getPossibleAttacks = (pieceType, fromRow, fromCol, board, pieceOwne
               attacks.push({ row: newRow, col: newCol, type: 'attack' });
             }
           } else if (specialRules.cannotAttackAdjacent && distance === 1) {
-            // 弓箭手不能攻擊相鄰敵人
+            // 弩手不能攻擊相鄰敵人
             continue;
           } else {
+            // 普通攻擊
             attacks.push({ row: newRow, col: newCol, type: 'attack' });
           }
         }
         
-        // 如果不能越過棋子攻擊，就停止
+        // 如果不能越過棋子攻擊，就停止這個方向
         if (!specialRules.canAttackOverPieces) {
           break;
         }

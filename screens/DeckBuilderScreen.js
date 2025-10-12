@@ -12,27 +12,34 @@ import {
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import { LinearGradient } from 'expo-linear-gradient';
 import PieceManager from './pieces/PieceManager';
+import { getPieceCategory } from './pieceRules';
 
 const { width: screenWidth, height: screenHeight } = Dimensions.get('window');
 
 // 可用棋子列表
 const AVAILABLE_PIECES = [
-  { id: 'S', name: '士兵', description: '基礎近戰單位', category: '基礎型' },
-  { id: 'A', name: '弓箭手', description: '遠程攻擊單位', category: '遠程型' },
-  { id: 'M', name: '魔法師', description: '魔法攻擊單位', category: '魔法型' },
-  { id: 'K', name: '騎士', description: '高機動性單位', category: '機動型' },
-  { id: 'P', name: '牧師', description: '治療與支援單位', category: '支援型' },
-  { id: 'AS', name: '刺客', description: '隱身與暗殺單位', category: '暗殺型' },
-  { id: 'MT', name: '心智扭曲者', description: '精神控制單位', category: '控制型' },
-  { id: 'CB', name: '弩手', description: '重型遠程單位', category: '遠程型' },
-  { id: 'SM', name: '太刀武士', description: '劍術大師單位', category: '近戰型' },
-  { id: 'WA', name: '戰爭建築師', description: '防禦建設單位', category: '建設型' },
-  { id: 'SD', name: '睏睏狗', description: '催眠控制單位', category: '控制型' },
-  { id: 'CC', name: '食人螃蟹', description: '兇猛近戰單位', category: '野獸型' },
+  { id: 'S', name: '士兵', description: '基礎近戰單位' },
+  { id: 'A', name: '弓箭手', description: '遠程攻擊單位' },
+  { id: 'M', name: '魔法師', description: '魔法攻擊單位' },
+  { id: 'K', name: '騎士', description: '高機動性單位' },
+  { id: 'P', name: '牧師', description: '治療與支援單位' },
+  { id: 'AS', name: '刺客', description: '隱身與暗殺單位' },
+  { id: 'MT', name: '心智扭曲者', description: '精神控制單位' },
+  { id: 'CB', name: '弩手', description: '重型遠程單位' },
+  { id: 'SM', name: '太刀武士', description: '劍術大師單位' },
+  { id: 'WA', name: '戰爭建築師', description: '防禦建設單位' },
+  { id: 'SD', name: '睏睏狗', description: '催眠控制單位' },
+  { id: 'CC', name: '食人螃蟹', description: '兇猛近戰單位' },
 ];
 
+// 根據規則分類棋子
+const BASIC_PIECES = AVAILABLE_PIECES.filter(piece => getPieceCategory(piece.id) === 'basic');
+const SPECIAL_PIECES = AVAILABLE_PIECES.filter(piece => getPieceCategory(piece.id) === 'special');
+
 const DeckBuilderScreen = ({ onBack, onSaveDeck }) => {
-  const [selectedPieces, setSelectedPieces] = useState(['S', 'A', 'M', 'K', 'P', 'AS', 'MT', 'CB']); // 默認棋組
+  // 新的狀態管理：分為前排和特殊棋子
+  const [frontRowPieces, setFrontRowPieces] = useState(['S', 'SM']); // 前排棋子（基礎型，最多2個）
+  const [specialPieces, setSpecialPieces] = useState(['A', 'M', 'K', 'P']); // 特殊棋子（特殊型，最多4個）
   const [selectedPiece, setSelectedPiece] = useState(null);
   const [savedDecks, setSavedDecks] = useState([]);
   const [showMyDecks, setShowMyDecks] = useState(false);
@@ -40,6 +47,10 @@ const DeckBuilderScreen = ({ onBack, onSaveDeck }) => {
   const [newDeckName, setNewDeckName] = useState('');
   const [showSaveDialog, setShowSaveDialog] = useState(false);
   const [tempSaveDeckName, setTempSaveDeckName] = useState('');
+  
+  // 點擊交換相關狀態
+  const [selectedPieceIndex, setSelectedPieceIndex] = useState(null);
+  const [selectedSection, setSelectedSection] = useState(null); // 'front' 或 'special'
 
   // 載入保存的棋組
   useEffect(() => {
@@ -56,21 +67,41 @@ const DeckBuilderScreen = ({ onBack, onSaveDeck }) => {
     loadSavedDecks();
   }, []);
 
-  const togglePiece = (pieceId) => {
-    if (selectedPieces.includes(pieceId)) {
-      setSelectedPieces(selectedPieces.filter(id => id !== pieceId));
+  // 獲取所有選中的棋子（用於顯示和保存）
+  const getAllSelectedPieces = () => {
+    return [...frontRowPieces, ...specialPieces];
+  };
+
+  // 選擇前排棋子（基礎型）
+  const toggleFrontRowPiece = (pieceId) => {
+    if (frontRowPieces.includes(pieceId)) {
+      setFrontRowPieces(frontRowPieces.filter(id => id !== pieceId));
     } else {
-      if (selectedPieces.length < 8) { // 最多8個棋子
-        setSelectedPieces([...selectedPieces, pieceId]);
+      if (frontRowPieces.length < 2) {
+        setFrontRowPieces([...frontRowPieces, pieceId]);
       } else {
-        Alert.alert('提示', '棋組最多只能有8個棋子！');
+        Alert.alert('提示', '前排最多只能選擇2個基礎型棋子！');
+      }
+    }
+  };
+
+  // 選擇特殊棋子（特殊型）
+  const toggleSpecialPiece = (pieceId) => {
+    if (specialPieces.includes(pieceId)) {
+      setSpecialPieces(specialPieces.filter(id => id !== pieceId));
+    } else {
+      if (specialPieces.length < 4) {
+        setSpecialPieces([...specialPieces, pieceId]);
+      } else {
+        Alert.alert('提示', '特殊區域最多只能選擇4個特殊型棋子！');
       }
     }
   };
 
   const saveDeck = async () => {
-    if (selectedPieces.length !== 8) {
-      Alert.alert('錯誤', '棋組必須包含8個棋子！');
+    const allPieces = getAllSelectedPieces();
+    if (allPieces.length !== 6) {
+      Alert.alert('錯誤', '棋組必須包含6個棋子（前排2個基礎型 + 特殊4個特殊型）！');
       return;
     }
 
@@ -85,10 +116,13 @@ const DeckBuilderScreen = ({ onBack, onSaveDeck }) => {
     }
 
     try {
+      const allPieces = getAllSelectedPieces();
       const newDeck = {
         id: Date.now().toString(),
         name: tempSaveDeckName.trim(),
-        pieces: selectedPieces,
+        pieces: allPieces,
+        frontRowPieces: frontRowPieces,
+        specialPieces: specialPieces,
         createdAt: new Date().toISOString()
       };
       
@@ -96,7 +130,7 @@ const DeckBuilderScreen = ({ onBack, onSaveDeck }) => {
       setSavedDecks(updatedDecks);
       
       await AsyncStorage.setItem('savedDecks', JSON.stringify(updatedDecks));
-      onSaveDeck(selectedPieces);
+      onSaveDeck(allPieces);
       setShowSaveDialog(false);
       setTempSaveDeckName('');
       Alert.alert('成功', `棋組「${tempSaveDeckName.trim()}」已保存到「我的棋組」！`);
@@ -113,8 +147,9 @@ const DeckBuilderScreen = ({ onBack, onSaveDeck }) => {
 
   // 保存棋組到我的排組
   const saveToMyDecks = async () => {
-    if (selectedPieces.length !== 8) {
-      Alert.alert('錯誤', '棋組必須包含8個棋子！');
+    const allPieces = getAllSelectedPieces();
+    if (allPieces.length !== 6) {
+      Alert.alert('錯誤', '棋組必須包含6個棋子（前排2個基礎型 + 特殊4個特殊型）！');
       return;
     }
 
@@ -123,7 +158,9 @@ const DeckBuilderScreen = ({ onBack, onSaveDeck }) => {
       const newDeck = {
         id: Date.now().toString(),
         name: deckName,
-        pieces: selectedPieces,
+        pieces: allPieces,
+        frontRowPieces: frontRowPieces,
+        specialPieces: specialPieces,
         createdAt: new Date().toISOString()
       };
       
@@ -140,7 +177,16 @@ const DeckBuilderScreen = ({ onBack, onSaveDeck }) => {
 
   // 載入棋組
   const loadDeck = (deck) => {
-    setSelectedPieces(deck.pieces);
+    // 如果是新格式的棋組（有frontRowPieces和specialPieces）
+    if (deck.frontRowPieces && deck.specialPieces) {
+      setFrontRowPieces(deck.frontRowPieces);
+      setSpecialPieces(deck.specialPieces);
+    } else {
+      // 兼容舊格式，將前2個設為前排，後4個設為特殊
+      const pieces = deck.pieces || [];
+      setFrontRowPieces(pieces.slice(0, 2));
+      setSpecialPieces(pieces.slice(2, 6));
+    }
     setShowMyDecks(false);
     Alert.alert('成功', `已載入「${deck.name}」！`);
   };
@@ -192,6 +238,40 @@ const DeckBuilderScreen = ({ onBack, onSaveDeck }) => {
     setNewDeckName('');
   };
 
+  // 點擊交換處理函數
+  const handlePieceClick = (index, section) => {
+    if (selectedPieceIndex === null) {
+      // 第一次點擊，選中棋子
+      setSelectedPieceIndex(index);
+      setSelectedSection(section);
+    } else if (selectedPieceIndex === index && selectedSection === section) {
+      // 點擊同一個棋子，取消選中
+      setSelectedPieceIndex(null);
+      setSelectedSection(null);
+    } else if (selectedSection === section) {
+      // 同一區域內交換棋子位置
+      if (section === 'front') {
+        if (index < frontRowPieces.length) {
+          const newPieces = [...frontRowPieces];
+          const temp = newPieces[selectedPieceIndex];
+          newPieces[selectedPieceIndex] = newPieces[index];
+          newPieces[index] = temp;
+          setFrontRowPieces(newPieces);
+        }
+      } else if (section === 'special') {
+        if (index < specialPieces.length) {
+          const newPieces = [...specialPieces];
+          const temp = newPieces[selectedPieceIndex];
+          newPieces[selectedPieceIndex] = newPieces[index];
+          newPieces[index] = temp;
+          setSpecialPieces(newPieces);
+        }
+      }
+      setSelectedPieceIndex(null);
+      setSelectedSection(null);
+    }
+  };
+
   return (
     <LinearGradient
       colors={['#1a1a1a', '#2d2d2d', '#1a1a1a']}
@@ -208,28 +288,28 @@ const DeckBuilderScreen = ({ onBack, onSaveDeck }) => {
         {/* 標題 */}
         <View style={styles.titleContainer}>
           <Text style={styles.title}>編制棋組</Text>
-          <Text style={styles.subtitle}>選擇您的戰術組合 ({selectedPieces.length}/8)</Text>
+          <Text style={styles.subtitle}>前排2個基礎型 + 特殊4個特殊型 ({getAllSelectedPieces().length}/6)</Text>
         </View>
 
         {/* 保存按鈕 */}
         <TouchableOpacity
           style={[
             styles.saveButton,
-            selectedPieces.length !== 8 && styles.disabledButton
+            getAllSelectedPieces().length !== 6 && styles.disabledButton
           ]}
           onPress={saveDeck}
-          disabled={selectedPieces.length !== 8}
+          disabled={getAllSelectedPieces().length !== 6}
           activeOpacity={0.8}
         >
           <LinearGradient
-            colors={selectedPieces.length === 8 ? ['#FFD700', '#FFA500'] : ['#666', '#444']}
+            colors={getAllSelectedPieces().length === 6 ? ['#FFD700', '#FFA500'] : ['#666', '#444']}
             style={styles.saveButtonGradient}
             start={{ x: 0, y: 0 }}
             end={{ x: 1, y: 1 }}
           >
             <Text style={[
               styles.saveButtonText,
-              selectedPieces.length !== 8 && styles.disabledButtonText
+              getAllSelectedPieces().length !== 6 && styles.disabledButtonText
             ]}>
               保存棋組
             </Text>
@@ -257,63 +337,181 @@ const DeckBuilderScreen = ({ onBack, onSaveDeck }) => {
         {/* 當前棋組預覽 */}
         <View style={styles.deckPreview}>
           <Text style={styles.sectionTitle}>當前棋組</Text>
-          <View style={styles.previewContainer}>
-            <View style={styles.previewGrid}>
-              {selectedPieces.map((pieceId, index) => (
-                <View key={index} style={styles.previewPiece}>
-                  <View style={styles.previewPieceContainer}>
-                    <PieceManager 
-                      piece={pieceId} 
-                      isSelected={true} 
-                      isHighlighted={false} 
-                    />
+          <Text style={styles.clickHint}>
+            {selectedPieceIndex === null 
+              ? '點擊棋子選中，再點擊另一個棋子交換位置' 
+              : `已選中 ${selectedSection === 'front' 
+                  ? AVAILABLE_PIECES.find(p => p.id === frontRowPieces[selectedPieceIndex])?.name
+                  : AVAILABLE_PIECES.find(p => p.id === specialPieces[selectedPieceIndex])?.name
+                }，點擊其他棋子交換位置`
+            }
+          </Text>
+          
+          {/* 前排區域 */}
+          <View style={styles.previewSection}>
+            <Text style={styles.previewSectionTitle}>前排棋子 (基礎型) {frontRowPieces.length}/2</Text>
+            <View style={styles.previewContainer}>
+              <View style={styles.previewGrid}>
+                {frontRowPieces.map((pieceId, index) => (
+                  <TouchableOpacity
+                    key={`front-${index}`}
+                    style={[
+                      styles.previewPiece,
+                      selectedPieceIndex === index && selectedSection === 'front' && styles.selectedPiece,
+                    ]}
+                    onPress={() => handlePieceClick(index, 'front')}
+                    activeOpacity={0.8}
+                  >
+                    <View style={styles.previewPieceContainer}>
+                      <PieceManager 
+                        piece={pieceId} 
+                        isSelected={selectedPieceIndex === index && selectedSection === 'front'} 
+                        isHighlighted={false}
+                        currentHealth={undefined}
+                        maxHealth={undefined}
+                      />
+                    </View>
+                    <Text style={styles.previewPieceText}>
+                      {AVAILABLE_PIECES.find(p => p.id === pieceId)?.name}
+                    </Text>
+                    {selectedPieceIndex === index && selectedSection === 'front' && (
+                      <View style={styles.selectedIndicator} />
+                    )}
+                  </TouchableOpacity>
+                ))}
+                {/* 前排空位 */}
+                {Array.from({ length: 2 - frontRowPieces.length }).map((_, index) => (
+                  <View 
+                    key={`front-empty-${index}`} 
+                    style={styles.emptySlot}
+                  >
+                    <Text style={styles.emptySlotText}>空</Text>
                   </View>
-                  <Text style={styles.previewPieceText}>
-                    {AVAILABLE_PIECES.find(p => p.id === pieceId)?.name}
-                  </Text>
-                </View>
-              ))}
-              {/* 空位 */}
-              {Array.from({ length: 8 - selectedPieces.length }).map((_, index) => (
-                <View key={`empty-${index}`} style={styles.emptySlot}>
-                  <Text style={styles.emptySlotText}>空</Text>
-                </View>
-              ))}
+                ))}
+              </View>
+            </View>
+          </View>
+
+          {/* 特殊區域 */}
+          <View style={styles.previewSection}>
+            <Text style={styles.previewSectionTitle}>特殊棋子 (特殊型) {specialPieces.length}/4</Text>
+            <View style={styles.previewContainer}>
+              <View style={styles.previewGrid}>
+                {specialPieces.map((pieceId, index) => (
+                  <TouchableOpacity
+                    key={`special-${index}`}
+                    style={[
+                      styles.previewPiece,
+                      selectedPieceIndex === index && selectedSection === 'special' && styles.selectedPiece,
+                    ]}
+                    onPress={() => handlePieceClick(index, 'special')}
+                    activeOpacity={0.8}
+                  >
+                    <View style={styles.previewPieceContainer}>
+                      <PieceManager 
+                        piece={pieceId} 
+                        isSelected={selectedPieceIndex === index && selectedSection === 'special'} 
+                        isHighlighted={false}
+                        currentHealth={undefined}
+                        maxHealth={undefined}
+                      />
+                    </View>
+                    <Text style={styles.previewPieceText}>
+                      {AVAILABLE_PIECES.find(p => p.id === pieceId)?.name}
+                    </Text>
+                    {selectedPieceIndex === index && selectedSection === 'special' && (
+                      <View style={styles.selectedIndicator} />
+                    )}
+                  </TouchableOpacity>
+                ))}
+                {/* 特殊空位 */}
+                {Array.from({ length: 4 - specialPieces.length }).map((_, index) => (
+                  <View 
+                    key={`special-empty-${index}`} 
+                    style={styles.emptySlot}
+                  >
+                    <Text style={styles.emptySlotText}>空</Text>
+                  </View>
+                ))}
+              </View>
             </View>
           </View>
         </View>
 
         {/* 棋子選擇區域 */}
         <View style={styles.pieceSelection}>
-          <Text style={styles.sectionTitle}>選擇棋子</Text>
-          <View style={styles.pieceGrid}>
-            {AVAILABLE_PIECES.map((piece) => (
-              <TouchableOpacity
-                key={piece.id}
-                style={[
-                  styles.pieceCard,
-                  selectedPieces.includes(piece.id) && styles.selectedCard,
-                ]}
-                onPress={() => {
-                  setSelectedPiece(piece.id);
-                  togglePiece(piece.id);
-                }}
-                activeOpacity={0.8}
-              >
-                <View style={styles.pieceCardContent}>
-                  <View style={styles.pieceDisplay}>
-                    <PieceManager 
-                      piece={piece.id} 
-                      isSelected={false} 
-                      isHighlighted={false} 
-                    />
+          {/* 基礎型棋子選擇 */}
+          <View style={styles.pieceCategorySection}>
+            <Text style={styles.sectionTitle}>基礎型棋子 (前排)</Text>
+            <Text style={styles.categorySubtitle}>選擇2個基礎型棋子作為前排</Text>
+            <View style={styles.pieceGrid}>
+              {BASIC_PIECES.map((piece) => (
+                <TouchableOpacity
+                  key={piece.id}
+                  style={[
+                    styles.pieceCard,
+                    frontRowPieces.includes(piece.id) && styles.selectedCard,
+                  ]}
+                  onPress={() => {
+                    setSelectedPiece(piece.id);
+                    toggleFrontRowPiece(piece.id);
+                  }}
+                  activeOpacity={0.8}
+                >
+                  <View style={styles.pieceCardContent}>
+                    <View style={styles.pieceDisplay}>
+                      <PieceManager 
+                        piece={piece.id} 
+                        isSelected={false} 
+                        isHighlighted={false}
+                        currentHealth={undefined}
+                        maxHealth={undefined}
+                      />
+                    </View>
+                    <Text style={styles.pieceName}>{piece.name}</Text>
+                    <Text style={styles.pieceDescription}>{piece.description}</Text>
+                    <Text style={[styles.pieceCategory, styles.basicCategory]}>基礎型</Text>
                   </View>
-                  <Text style={styles.pieceName}>{piece.name}</Text>
-                  <Text style={styles.pieceDescription}>{piece.description}</Text>
-                  <Text style={styles.pieceCategory}>{piece.category}</Text>
-                </View>
-              </TouchableOpacity>
-            ))}
+                </TouchableOpacity>
+              ))}
+            </View>
+          </View>
+
+          {/* 特殊型棋子選擇 */}
+          <View style={styles.pieceCategorySection}>
+            <Text style={styles.sectionTitle}>特殊型棋子 (特殊)</Text>
+            <Text style={styles.categorySubtitle}>選擇4個特殊型棋子作為特殊部隊</Text>
+            <View style={styles.pieceGrid}>
+              {SPECIAL_PIECES.map((piece) => (
+                <TouchableOpacity
+                  key={piece.id}
+                  style={[
+                    styles.pieceCard,
+                    specialPieces.includes(piece.id) && styles.selectedCard,
+                  ]}
+                  onPress={() => {
+                    setSelectedPiece(piece.id);
+                    toggleSpecialPiece(piece.id);
+                  }}
+                  activeOpacity={0.8}
+                >
+                  <View style={styles.pieceCardContent}>
+                    <View style={styles.pieceDisplay}>
+                      <PieceManager 
+                        piece={piece.id} 
+                        isSelected={false} 
+                        isHighlighted={false}
+                        currentHealth={undefined}
+                        maxHealth={undefined}
+                      />
+                    </View>
+                    <Text style={styles.pieceName}>{piece.name}</Text>
+                    <Text style={styles.pieceDescription}>{piece.description}</Text>
+                    <Text style={[styles.pieceCategory, styles.specialCategory]}>特殊型</Text>
+                  </View>
+                </TouchableOpacity>
+              ))}
+            </View>
           </View>
         </View>
 
@@ -386,7 +584,7 @@ const DeckBuilderScreen = ({ onBack, onSaveDeck }) => {
                           創建時間: {new Date(deck.createdAt).toLocaleDateString()}
                         </Text>
                         <Text style={styles.deckPieces}>
-                          棋子數量: {deck.pieces.length}/8
+                          棋子數量: {deck.pieces.length}/6
                         </Text>
                       </View>
                       <View style={styles.deckActions}>
@@ -414,7 +612,9 @@ const DeckBuilderScreen = ({ onBack, onSaveDeck }) => {
                               <PieceManager 
                                 piece={pieceId} 
                                 isSelected={false} 
-                                isHighlighted={false} 
+                                isHighlighted={false}
+                                currentHealth={undefined}
+                                maxHealth={undefined}
                               />
                             </View>
                             <Text style={styles.deckPieceName}>
@@ -423,7 +623,7 @@ const DeckBuilderScreen = ({ onBack, onSaveDeck }) => {
                           </View>
                         ))}
                         {/* 空位 */}
-                        {Array.from({ length: 8 - deck.pieces.length }).map((_, index) => (
+                        {Array.from({ length: 6 - deck.pieces.length }).map((_, index) => (
                           <View key={`empty-${index}`} style={styles.deckEmptySlot}>
                             <Text style={styles.deckEmptySlotText}>空</Text>
                           </View>
@@ -534,6 +734,40 @@ const styles = StyleSheet.create({
     color: '#FFFFFF',
     marginBottom: 15,
   },
+  previewSection: {
+    marginBottom: 25,
+  },
+  previewSectionTitle: {
+    fontSize: 16,
+    fontWeight: 'bold',
+    color: '#FFD700',
+    marginBottom: 10,
+    textAlign: 'center',
+  },
+  pieceCategorySection: {
+    marginBottom: 30,
+  },
+  categorySubtitle: {
+    fontSize: 14,
+    color: '#C0C0C0',
+    marginBottom: 15,
+    textAlign: 'center',
+    fontStyle: 'italic',
+  },
+  basicCategory: {
+    color: '#4CAF50', // 綠色表示基礎型
+  },
+  specialCategory: {
+    color: '#F44336', // 紅色表示特殊型
+  },
+  clickHint: {
+    fontSize: 14,
+    color: '#9370DB',
+    textAlign: 'center',
+    marginBottom: 10,
+    fontStyle: 'italic',
+    paddingHorizontal: 10,
+  },
   deckPreview: {
     marginBottom: 30,
   },
@@ -560,6 +794,7 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     marginBottom: 20,
     marginHorizontal: '1%',
+    position: 'relative',
   },
   previewPieceContainer: {
     width: 50,
@@ -570,6 +805,26 @@ const styles = StyleSheet.create({
     fontSize: 12,
     color: '#FFFFFF',
     textAlign: 'center',
+  },
+  selectedPiece: {
+    backgroundColor: 'rgba(255, 215, 0, 0.2)',
+    borderWidth: 2,
+    borderColor: '#FFD700',
+    borderRadius: 8,
+    transform: [{ scale: 1.05 }],
+  },
+  selectedIndicator: {
+    position: 'absolute',
+    top: -5,
+    right: -5,
+    width: 20,
+    height: 20,
+    borderRadius: 10,
+    backgroundColor: '#FFD700',
+    borderWidth: 2,
+    borderColor: '#FFFFFF',
+    justifyContent: 'center',
+    alignItems: 'center',
   },
   emptySlot: {
     width: '22%',

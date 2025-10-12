@@ -16,7 +16,10 @@ import {
   isValidMove, 
   isValidAttack,
   isAdjacent as rulesIsAdjacent,
-  PIECE_TYPES as RULE_PIECE_TYPES
+  PIECE_TYPES as RULE_PIECE_TYPES,
+  getPieceMaxHealth,
+  getPieceHealth,
+  getPieceAttackPower
 } from './pieceRules';
 import { CardSystem, CARD_TYPES } from './CardSystem';
 
@@ -122,18 +125,99 @@ const PIECE_TYPES = {
   },
 };
 
-const ChessBoard3D = ({ onBack }) => {
+const ChessBoard3D = ({ onBack, gameMode, playerDeck: initialPlayerDeck }) => {
+  // 載入狀態
+  const [isLoading, setIsLoading] = useState(true);
+  
   // 卡牌系統狀態
   const [playerHand, setPlayerHand] = useState([]);
   const [enemyHand, setEnemyHand] = useState([]);
-  const [playerDeck, setPlayerDeck] = useState([]);
-  const [enemyDeck, setEnemyDeck] = useState([]);
+  const [playerCardDeck, setPlayerCardDeck] = useState([]);
+  const [enemyCardDeck, setEnemyCardDeck] = useState([]);
   const [selectedCard, setSelectedCard] = useState(null);
   const [mana, setMana] = useState({ current: 100, max: 100 });
   
   // AI出牌動畫狀態
   const [aiPlayedCard, setAiPlayedCard] = useState(null);
   const [showAiPlayedCard, setShowAiPlayedCard] = useState(false);
+
+  // 當初始棋組改變時更新棋盤上的棋子
+  useEffect(() => {
+    if (initialPlayerDeck && initialPlayerDeck.pieces && Array.isArray(initialPlayerDeck.pieces) && initialPlayerDeck.pieces.length === 6) {
+      // 獲取前排棋子和特殊棋子
+      const frontRowPieces = initialPlayerDeck.frontRowPieces || initialPlayerDeck.pieces.slice(0, 2);
+      const specialPieces = initialPlayerDeck.specialPieces || initialPlayerDeck.pieces.slice(2, 6);
+      
+      // 重新初始化棋盤，使用自定義棋組
+      const newBoard = Array(BOARD_SIZE).fill(null).map(() => 
+        Array(BOARD_SIZE).fill('empty')
+      );
+      
+      // === 玩家方布局 (第6-7行) ===
+      // 前排棋子 (基礎型)：交錯佔滿前排格子 (第6行)
+      // 放置在 [6,0], [6,2], [6,4], [6,6] （偶數列）
+      // 和 [6,1], [6,3], [6,5], [6,7] （奇數列）
+      // 2個基礎型棋子交替放置
+      for (let col = 0; col < 8; col++) {
+        newBoard[6][col] = frontRowPieces[col % 2]; // 交錯放置
+      }
+      
+      // 後排棋子 (特殊型)：4個棋子站滿[7,0]~[7,3]，然後鏡像到[7,4]~[7,7]
+      for (let col = 0; col < 4; col++) {
+        newBoard[7][col] = specialPieces[col]; // 前半部分
+        newBoard[7][col + 4] = specialPieces[col]; // 鏡像到後半部分
+      }
+      
+      // === AI方布局 (第0-1行，使用相同的棋組，鏡像到上方) ===
+      // 前排棋子：交錯佔滿前排格子 (第1行)
+      for (let col = 0; col < 8; col++) {
+        newBoard[1][col] = frontRowPieces[col % 2]; // 交錯放置
+      }
+      
+      // 後排棋子：4個棋子站滿[0,0]~[0,3]，然後鏡像到[0,4]~[0,7]
+      for (let col = 0; col < 4; col++) {
+        newBoard[0][col] = specialPieces[col]; // 前半部分
+        newBoard[0][col + 4] = specialPieces[col]; // 鏡像到後半部分
+      }
+      
+      setBoard(newBoard);
+      
+      // 重新初始化棋子狀態和歸屬權
+      const newPieceStates = {};
+      const newPieceOwners = {};
+      for (let row = 0; row < BOARD_SIZE; row++) {
+        for (let col = 0; col < BOARD_SIZE; col++) {
+          const piece = newBoard[row][col];
+          if (piece && piece !== 'empty') {
+            const pieceKey = `${row}-${col}`;
+            // 使用規則中定義的棋子狀態
+            newPieceStates[pieceKey] = {
+              hasMoved: false,
+              health: getPieceHealth(piece),
+              maxHealth: getPieceMaxHealth(piece),
+              attackPower: getPieceAttackPower(piece),
+              defense: 25,
+              specialAbilityUsed: false,
+              isStunned: false,
+              isPoisoned: false,
+              buffs: [],
+              debuffs: []
+            };
+            // 設置棋子歸屬權：根據行來判斷（行0-1是AI，行6-7是玩家）
+            newPieceOwners[pieceKey] = row <= 1 ? 'ai' : 'human';
+          }
+        }
+      }
+      setPieceStates(newPieceStates);
+      setPieceOwners(newPieceOwners);
+      
+      // 棋盤初始化完成，設置載入完成狀態
+      setTimeout(() => {
+        setIsLoading(false);
+      }, 500); // 給一點時間讓動畫完成
+    }
+  
+  }, [initialPlayerDeck]);
 
   // 初始化卡牌系統
   useEffect(() => {
@@ -146,31 +230,25 @@ const ChessBoard3D = ({ onBack }) => {
       repeatedCards.push(...shuffledCards);
     }
     
-    setPlayerDeck(repeatedCards.slice(0, 15));
-    setEnemyDeck(repeatedCards.slice(15, 30));
+    setPlayerCardDeck(repeatedCards.slice(0, 15));
+    setEnemyCardDeck(repeatedCards.slice(15, 30));
     setPlayerHand(repeatedCards.slice(30, 35));
     setEnemyHand(repeatedCards.slice(35, 40));
   }, []);
 
   // 卡牌相關函數 - 只處理選中邏輯
   const playCard = (card) => {
-    console.log('playCard 被調用:', card ? card.name : 'null', 'currentPlayer:', currentPlayer);
     if (currentPlayer === 'human') {
       if (card === null) {
         // 取消選中
-        console.log('取消選中卡片');
         setSelectedCard(null);
       } else if (selectedCard && selectedCard.id === card.id) {
         // 如果點擊已選中的卡片，取消選中
-        console.log('取消選中已選中的卡片');
         setSelectedCard(null);
       } else {
         // 如果點擊未選中的卡片，則選中它查看說明
-        console.log('選中卡片:', card.name);
         setSelectedCard(card);
       }
-    } else {
-      console.log('不是玩家回合，無法選中卡片');
     }
   };
 
@@ -183,7 +261,6 @@ const ChessBoard3D = ({ onBack }) => {
 
   // 結束回合函數
   const handleEndTurn = () => {
-    console.log('Player ended turn');
     setCurrentPlayer('ai');
     setIsAITurn(true);
   };
@@ -191,7 +268,6 @@ const ChessBoard3D = ({ onBack }) => {
   // AI出牌決策函數
   const getAICardPlay = () => {
     if (enemyHand.length === 0) {
-      console.log('AI has no cards to play');
       return null;
     }
 
@@ -199,13 +275,11 @@ const ChessBoard3D = ({ onBack }) => {
     const affordableCards = enemyHand.filter(card => card.cost <= mana.current);
     
     if (affordableCards.length === 0) {
-      console.log('AI cannot afford any cards');
       return null;
     }
 
     // 隨機選擇一張牌
     const selectedCard = affordableCards[Math.floor(Math.random() * affordableCards.length)];
-    console.log(`AI selected card: ${selectedCard.name}, cost: ${selectedCard.cost}`);
     
     return selectedCard;
   };
@@ -226,8 +300,6 @@ const ChessBoard3D = ({ onBack }) => {
         
         // 移除AI手牌
         setEnemyHand(prev => prev.filter(c => c.id !== card.id));
-        
-        console.log(`AI played card: ${card.name}`);
         
         // 再過0.5秒後清除卡片狀態
         setTimeout(() => {
@@ -251,13 +323,13 @@ const ChessBoard3D = ({ onBack }) => {
   };
 
   const drawCard = (player) => {
-    if (player === 'human' && playerDeck.length > 0 && playerHand.length < 5) {
-      const newCard = playerDeck[0];
-      setPlayerDeck(prev => prev.slice(1));
+    if (player === 'human' && playerCardDeck.length > 0 && playerHand.length < 5) {
+      const newCard = playerCardDeck[0];
+      setPlayerCardDeck(prev => prev.slice(1));
       setPlayerHand(prev => [...prev, newCard]);
-    } else if (player === 'ai' && enemyDeck.length > 0 && enemyHand.length < 5) {
-      const newCard = enemyDeck[0];
-      setEnemyDeck(prev => prev.slice(1));
+    } else if (player === 'ai' && enemyCardDeck.length > 0 && enemyHand.length < 5) {
+      const newCard = enemyCardDeck[0];
+      setEnemyCardDeck(prev => prev.slice(1));
       setEnemyHand(prev => [...prev, newCard]);
     }
   };
@@ -288,14 +360,6 @@ const ChessBoard3D = ({ onBack }) => {
     initialBoard[0][3] = 'AS'; // AI刺客
     initialBoard[0][4] = 'MT'; // AI心智扭曲者
     
-    console.log('棋盤初始化完成，新棋子位置:');
-    console.log('玩家牧師:', initialBoard[6][2], '位置 [6][2]');
-    console.log('玩家刺客:', initialBoard[6][3], '位置 [6][3]');
-    console.log('玩家心智扭曲者:', initialBoard[6][4], '位置 [6][4]');
-    console.log('AI牧師:', initialBoard[0][2], '位置 [0][2]');
-    console.log('AI刺客:', initialBoard[0][3], '位置 [0][3]');
-    console.log('AI心智扭曲者:', initialBoard[0][4], '位置 [0][4]');
-    
     return initialBoard;
   });
 
@@ -308,7 +372,9 @@ const ChessBoard3D = ({ onBack }) => {
         if (piece !== 'empty') {
           states[`${row}-${col}`] = {
             hasBeenAttacked: false,
-            player: row < 4 ? 'ai' : 'human' // 第0-3行是AI，第4-7行是玩家
+            player: row <= 1 ? 'ai' : 'human', // 行0-1是AI，行6-7是玩家
+            health: getPieceHealth(piece), // 當前血量
+            maxHealth: getPieceMaxHealth(piece), // 最大血量
           };
         }
       }
@@ -323,8 +389,8 @@ const ChessBoard3D = ({ onBack }) => {
       for (let col = 0; col < BOARD_SIZE; col++) {
         const piece = board[row][col];
         if (piece !== 'empty') {
-          // 根據初始位置設定擁有者，這個不會改變
-          owners[`${row}-${col}`] = row < 4 ? 'ai' : 'human';
+          // 根據初始位置設定擁有者，這個不會改變（行0-1是AI，行6-7是玩家）
+          owners[`${row}-${col}`] = row <= 1 ? 'ai' : 'human';
         }
       }
     }
@@ -359,8 +425,8 @@ const ChessBoard3D = ({ onBack }) => {
       return owner;
     }
     
-    // 如果沒有記錄，根據初始位置判斷（僅用於初始化）
-    return row < 4 ? 'ai' : 'human';
+    // 如果沒有記錄，根據初始位置判斷（僅用於初始化）（行0-1是AI，行6-7是玩家）
+    return row <= 1 ? 'ai' : 'human';
   };
 
   const isEnemyPiece = (row, col) => {
@@ -369,33 +435,41 @@ const ChessBoard3D = ({ onBack }) => {
   };
 
   const handleCombat = (attackerRow, attackerCol, targetRow, targetCol) => {
+    const attackerPiece = board[attackerRow][attackerCol];
     const targetPiece = board[targetRow][targetCol];
     const targetKey = `${targetRow}-${targetCol}`;
+    const attackerKey = `${attackerRow}-${attackerCol}`;
     const targetState = pieceStates[targetKey];
+    const attackerState = pieceStates[attackerKey];
     
-    console.log(`Combat: ${targetPiece} at (${targetRow},${targetCol}), hasBeenAttacked: ${targetState?.hasBeenAttacked}`);
+    // 獲取攻擊力
+    const attackPower = attackerState?.attackPower || getPieceAttackPower(attackerPiece);
     
-    if (targetPiece === 'W' && targetState && !targetState.hasBeenAttacked) {
-      setPieceStates(prev => ({
-        ...prev,
-        [targetKey]: {
-          ...prev[targetKey],
-          hasBeenAttacked: true
-        }
-      }));
-      console.log('Warrior protected from first attack');
-      return 'warrior_protected';
-    } else {
-      console.log('Enemy defeated');
+    // 計算新血量
+    const currentHealth = targetState?.health || getPieceHealth(targetPiece);
+    const newHealth = currentHealth - attackPower;
+    
+    // 更新目標血量
+    setPieceStates(prev => ({
+      ...prev,
+      [targetKey]: {
+        ...prev[targetKey],
+        health: Math.max(0, newHealth), // 確保血量不會低於0
+        hasBeenAttacked: true
+      }
+    }));
+    
+    // 如果血量歸零，敵人被擊敗
+    if (newHealth <= 0) {
       return 'enemy_defeated';
+    } else {
+      return 'enemy_damaged';
     }
   };
 
   const executeMove = (fromRow, fromCol, toRow, toCol) => {
     const piece = board[fromRow][fromCol];
     const targetPiece = board[toRow][toCol];
-    
-    console.log(`ExecuteMove: ${piece} from (${fromRow},${fromCol}) to (${toRow},${toCol}), target: ${targetPiece}`);
     
     if (targetPiece === 'empty') {
       const newBoard = board.map(row => [...row]);
@@ -426,51 +500,38 @@ const ChessBoard3D = ({ onBack }) => {
         return newOwners;
       });
       
-      console.log(`Move successful: ${piece} moved to (${toRow},${toCol})`);
       return 'moved';
     } else if (isEnemyPiece(toRow, toCol)) {
       const combatResult = handleCombat(fromRow, fromCol, toRow, toCol);
       
-      if (combatResult === 'warrior_protected') {
-        console.log('Attack blocked by warrior protection');
-        return 'warrior_protected';
+      if (combatResult === 'enemy_damaged') {
+        // 攻擊方不移動，只對敵方造成傷害
+        return 'attacked';
       } else if (combatResult === 'enemy_defeated') {
+        // 敵人血量歸零，從棋盤上移除，攻擊方仍然留在原地
         const newBoard = board.map(row => [...row]);
-        newBoard[toRow][toCol] = piece;
-        newBoard[fromRow][fromCol] = 'empty';
+        newBoard[toRow][toCol] = 'empty'; // 敵人被移除，位置變空
         setBoard(newBoard);
         
-        const newKey = `${toRow}-${toCol}`;
-        const oldKey = `${fromRow}-${fromCol}`;
+        const targetKey = `${toRow}-${toCol}`;
         
-        // 更新棋子狀態追蹤
+        // 移除被擊敗的敵人
         setPieceStates(prev => {
           const newStates = { ...prev };
-          if (newStates[oldKey]) {
-            newStates[newKey] = { ...newStates[oldKey] };
-            delete newStates[oldKey];
-          }
-          // 移除被擊敗的敵方棋子狀態
-          delete newStates[newKey];
+          delete newStates[targetKey];
           return newStates;
         });
         
-        // 更新棋子擁有者資訊 - 攻擊方棋子佔領位置
         setPieceOwners(prev => {
           const newOwners = { ...prev };
-          if (newOwners[oldKey]) {
-            newOwners[newKey] = newOwners[oldKey];
-            delete newOwners[oldKey];
-          }
+          delete newOwners[targetKey];
           return newOwners;
         });
         
-        console.log(`Attack successful: ${piece} defeated enemy at (${toRow},${toCol})`);
         return 'attacked';
       }
     }
     
-    console.log('Invalid move');
     return 'invalid';
   };
 
@@ -505,9 +566,6 @@ const ChessBoard3D = ({ onBack }) => {
       }
     }
     
-    console.log('AI pieces found:', aiPieces);
-    console.log('Current board state:', board);
-    console.log('Current pieceOwners:', pieceOwners);
     
     const allMoves = [];
     aiPieces.forEach(({ row, col, piece }) => {
@@ -537,10 +595,7 @@ const ChessBoard3D = ({ onBack }) => {
       });
     });
     
-    console.log('Total AI moves available:', allMoves.length);
-    
     if (allMoves.length === 0) {
-      console.log('AI has no valid moves');
       return null;
     }
     
@@ -548,17 +603,14 @@ const ChessBoard3D = ({ onBack }) => {
     
     if (attackMoves.length > 0) {
       const selectedMove = attackMoves[Math.floor(Math.random() * attackMoves.length)];
-      console.log('AI selected attack move:', selectedMove);
       return selectedMove;
     } else {
       const selectedMove = allMoves[Math.floor(Math.random() * allMoves.length)];
-      console.log('AI selected move:', selectedMove);
       return selectedMove;
     }
   };
 
   const makeAIMove = () => {
-    console.log('AI turn starting...');
     setTimeout(() => {
       // AI回合：先嘗試出牌，再移動棋子
       
@@ -566,9 +618,6 @@ const ChessBoard3D = ({ onBack }) => {
       const aiCard = getAICardPlay();
       if (aiCard) {
         playAICard(aiCard);
-        console.log('AI played a card, now moving piece...');
-      } else {
-        console.log('AI cannot play any cards, proceeding to move pieces...');
       }
       
       // 2. 移動棋子
@@ -576,7 +625,6 @@ const ChessBoard3D = ({ onBack }) => {
         const aiMove = getSimpleAIMove();
         
         if (!aiMove) {
-          console.log('AI has no valid moves, turn completed');
           // AI沒有可移動的棋子
           setCurrentPlayer('human');
           setIsAITurn(false);
@@ -584,13 +632,10 @@ const ChessBoard3D = ({ onBack }) => {
         }
         
         const { from, to } = aiMove;
-        console.log(`AI executing move from (${from.row},${from.col}) to (${to.row},${to.col})`);
-        const result = executeMove(from.row, from.col, to.row, to.col);
-        console.log('AI move result:', result);
+        executeMove(from.row, from.col, to.row, to.col);
         
         setTimeout(() => {
           // AI移動完成
-          console.log('AI turn completed');
           setCurrentPlayer('human');
           setIsAITurn(false);
         }, 500);
@@ -612,7 +657,6 @@ const ChessBoard3D = ({ onBack }) => {
   useEffect(() => {
     // 每個回合開始時都恢復法力值（包括AI回合）
     setMana(prev => ({ ...prev, current: prev.max }));
-    console.log(`Turn started for ${currentPlayer}, mana restored to ${mana.max}`);
   }, [currentPlayer]);
 
   const handleCellPress = (row, col) => {
@@ -659,32 +703,26 @@ const ChessBoard3D = ({ onBack }) => {
         } else if (isValidAttackAction && isEnemyPiece(row, col)) {
           const combatResult = handleCombat(selectedPosition.row, selectedPosition.col, row, col);
           
-          if (combatResult === 'warrior_protected') {
-            // 攻擊失敗，戰士被保護
+          if (combatResult === 'enemy_damaged') {
+            // 攻擊方留在原地，只扣血，不移動
           } else if (combatResult === 'enemy_defeated') {
+            // 敵人血量歸零，從棋盤上移除
             const newBoard = board.map(row => [...row]);
-            newBoard[row][col] = selectedPiece;
-            newBoard[selectedPosition.row][selectedPosition.col] = 'empty';
+            newBoard[row][col] = 'empty'; // 敵人被移除，位置變空
             setBoard(newBoard);
             
-            const newKey = `${row}-${col}`;
-            const oldKey = `${selectedPosition.row}-${selectedPosition.col}`;
+            const targetKey = `${row}-${col}`;
+            
+            // 移除被擊敗的敵人的狀態和歸屬權
             setPieceStates(prev => {
               const newStates = { ...prev };
-              if (newStates[oldKey]) {
-                newStates[newKey] = { ...newStates[oldKey] };
-                delete newStates[oldKey];
-              }
+              delete newStates[targetKey];
               return newStates;
             });
             
-            // 更新棋子擁有者資訊 - 攻擊方棋子佔領位置
             setPieceOwners(prev => {
               const newOwners = { ...prev };
-              if (newOwners[oldKey]) {
-                newOwners[newKey] = newOwners[oldKey];
-                delete newOwners[oldKey];
-              }
+              delete newOwners[targetKey];
               return newOwners;
             });
             
@@ -752,6 +790,8 @@ const ChessBoard3D = ({ onBack }) => {
             piece={piece}
             isSelected={isSelected}
             isHighlighted={isHighlighted}
+            currentHealth={pieceStates[`${row}-${col}`]?.health}
+            maxHealth={pieceStates[`${row}-${col}`]?.maxHealth}
           />
         </View>
       </TouchableOpacity>
@@ -795,7 +835,9 @@ const ChessBoard3D = ({ onBack }) => {
         if (piece !== 'empty') {
           states[`${row}-${col}`] = {
             hasBeenAttacked: false,
-            player: row < 4 ? 'ai' : 'human'
+            player: row < 4 ? 'ai' : 'human',
+            health: getPieceHealth(piece),
+            maxHealth: getPieceMaxHealth(piece)
           };
           owners[`${row}-${col}`] = row < 4 ? 'ai' : 'human';
         }
@@ -830,6 +872,21 @@ const ChessBoard3D = ({ onBack }) => {
     setAiPlayedCard(null);
     setShowAiPlayedCard(false);
   };
+
+  // 載入畫面
+  if (isLoading) {
+    return (
+      <View style={styles.container}>
+        <View style={styles.loadingContainer}>
+          <Text style={styles.loadingTitle}>戰棋大師</Text>
+          <Text style={styles.loadingText}>載入中...</Text>
+          <View style={styles.loadingSpinner}>
+            <Text style={styles.spinnerText}>⚔️</Text>
+          </View>
+        </View>
+      </View>
+    );
+  }
 
   return (
     <View style={styles.container}>
@@ -907,8 +964,8 @@ const ChessBoard3D = ({ onBack }) => {
       <CardSystem
         playerHand={playerHand}
         enemyHand={enemyHand}
-        playerDeck={playerDeck}
-        enemyDeck={enemyDeck}
+        playerDeck={playerCardDeck}
+        enemyDeck={enemyCardDeck}
         onPlayCard={playCard}
         onDrawCard={drawCard}
         selectedCard={selectedCard}
@@ -930,6 +987,42 @@ const styles = StyleSheet.create({
     backgroundColor: '#1a1a1a', // 深色背景
     alignItems: 'center',
     paddingTop: 50,
+  },
+  // 載入畫面樣式
+  loadingContainer: {
+    flex: 1,
+    justifyContent: 'center',
+    alignItems: 'center',
+    backgroundColor: '#1a1a1a',
+  },
+  loadingTitle: {
+    fontSize: 32,
+    fontWeight: 'bold',
+    color: '#FFD700',
+    marginBottom: 20,
+    textShadowColor: 'rgba(255, 215, 0, 0.5)',
+    textShadowOffset: { width: 0, height: 2 },
+    textShadowRadius: 10,
+  },
+  loadingText: {
+    fontSize: 18,
+    color: '#FFFFFF',
+    marginBottom: 30,
+    opacity: 0.8,
+  },
+  loadingSpinner: {
+    width: 60,
+    height: 60,
+    borderRadius: 30,
+    backgroundColor: 'rgba(255, 215, 0, 0.1)',
+    justifyContent: 'center',
+    alignItems: 'center',
+    borderWidth: 2,
+    borderColor: '#FFD700',
+  },
+  spinnerText: {
+    fontSize: 24,
+    color: '#FFD700',
   },
   backButton: {
     position: 'absolute',
@@ -1073,8 +1166,6 @@ const styles = StyleSheet.create({
   cell: {
     justifyContent: 'center',
     alignItems: 'center',
-    borderWidth: 0.5,
-    borderColor: '#654321',
     position: 'relative',
     width: CELL_SIZE,
     height: CELL_SIZE,
