@@ -27,6 +27,7 @@ export const PIECE_TYPES = {
   WA: 'WA', // 戰爭建築師
   SD: 'SD', // 睏睏狗
   CC: 'CC', // 食人螃蟹
+  CASTLE: 'CASTLE', // 中古城堡
   EMPTY: 'empty'
 };
 
@@ -65,7 +66,8 @@ export const PIECE_RULES = {
     specialRules: {
       requiresAllyInFront: true, // 攻擊時前方需要有己方棋子
       canAttackOverPieces: true, // 可以越過棋子攻擊
-      cannotAttackAdjacent: true // 不能攻擊相鄰的敵人
+      cannotAttackAdjacent: true, // 不能攻擊相鄰的敵人
+      canMoveThroughAllies: true // 可以穿過己方棋子
     }
   },
   
@@ -86,7 +88,8 @@ export const PIECE_RULES = {
     category: 'special', // 分類：特殊型
     specialRules: {
       areaAttack: true, // 範圍攻擊
-      canAttackOverPieces: true // 可以越過棋子攻擊
+      canAttackOverPieces: true, // 可以越過棋子攻擊
+      canMoveThroughAllies: true // 可以穿過己方棋子
     }
   },
   
@@ -104,7 +107,8 @@ export const PIECE_RULES = {
     category: 'special', // 分類：特殊型
     specialRules: {
       highMobility: true, // 高機動性
-      canMoveThroughPieces: false // 不能穿過其他棋子
+      canMoveThroughPieces: false, // 不能穿過其他棋子
+      canMoveThroughAllies: true // 可以穿過己方小兵
     }
   },
 
@@ -122,7 +126,8 @@ export const PIECE_RULES = {
     category: 'special', // 分類：特殊型
     specialRules: {
       healing: true, // 可以治療己方棋子
-      canHealAdjacent: true // 可以治療相鄰的己方棋子
+      canHealAdjacent: true, // 可以治療相鄰的己方棋子
+      canMoveThroughAllies: true // 可以穿過己方棋子
     }
   },
 
@@ -141,7 +146,8 @@ export const PIECE_RULES = {
     specialRules: {
       stealth: true, // 隱身能力
       canMoveThroughPieces: true, // 可以穿過棋子移動
-      highDamage: true // 高攻擊力
+      highDamage: true, // 高攻擊力
+      canMoveThroughAllies: true // 可以穿過己方棋子
     }
   },
 
@@ -153,10 +159,10 @@ export const PIECE_RULES = {
     attackDistance: 2, // 攻擊距離：2格
     attackDirections: [DIRECTIONS.UP, DIRECTIONS.DOWN, DIRECTIONS.LEFT, DIRECTIONS.RIGHT],
     attackPower: 50, // 攻擊力：50
-    maxHealth: 100, // 最大血量：100（遠程）
-    health: 100, // 當前血量：100
+    maxHealth: 300, // 最大血量：300（英雄）
+    health: 300, // 當前血量：300
     attackType: 'ranged', // 攻擊類型：遠程
-    category: 'special', // 分類：特殊型
+    category: 'hero', // 分類：英雄型
     specialRules: {
       mindControl: true, // 精神控制
       canControlEnemy: true, // 可以控制敵方棋子
@@ -179,7 +185,8 @@ export const PIECE_RULES = {
     specialRules: {
       cannotAttackAdjacent: true, // 不能攻擊相鄰的敵人
       canAttackOverPieces: true, // 可以越過棋子攻擊
-      longRange: true // 遠程攻擊
+      longRange: true, // 遠程攻擊
+      canMoveThroughAllies: true // 可以穿過己方棋子
     }
   },
 
@@ -210,10 +217,10 @@ export const PIECE_RULES = {
     attackDistance: 1, // 攻擊距離：1格
     attackDirections: [DIRECTIONS.UP, DIRECTIONS.DOWN, DIRECTIONS.LEFT, DIRECTIONS.RIGHT],
     attackPower: 50, // 攻擊力：50
-    maxHealth: 100, // 最大血量：100（遠程）
-    health: 100, // 當前血量：100
+    maxHealth: 300, // 最大血量：300（英雄）
+    health: 300, // 當前血量：300
     attackType: 'ranged', // 攻擊類型：遠程
-    category: 'special', // 分類：特殊型
+    category: 'hero', // 分類：英雄型
     specialRules: {
       construction: true, // 建設能力
       canBuildDefenses: true, // 可以建造防禦設施
@@ -256,6 +263,28 @@ export const PIECE_RULES = {
       strongDefense: true, // 強防禦
       highHealth: true, // 高血量
       canDefend: true // 可以防禦
+    }
+  },
+
+  [PIECE_TYPES.CASTLE]: {
+    name: '中古城堡',
+    moveRange: 0, // 城堡不能移動
+    moveDirections: [], // 無移動方向
+    attackRange: 0, // 攻擊範圍：0格（不能攻擊）
+    attackDistance: 0, // 攻擊距離：0格
+    attackDirections: [], // 無攻擊方向
+    attackPower: 0, // 攻擊力：0（不能攻擊）
+    maxHealth: 50, // 最大血量：50（城堡）
+    health: 50, // 當前血量：50
+    attackType: 'ranged', // 攻擊類型：遠程
+    category: 'structure', // 分類：建築物
+    specialRules: {
+      immobile: true, // 不能移動
+      highHealth: true, // 高血量
+      strongDefense: true, // 強防禦
+      canAttackOverPieces: true, // 可以越過棋子攻擊
+      multiCell: true, // 佔據多個格子
+      occupiesTwoCells: true // 佔據兩個格子
     }
   }
 };
@@ -325,6 +354,7 @@ export const getPossibleMoves = (pieceType, fromRow, fromCol, board, pieceOwners
   const moves = [];
   const moveRange = getPieceMoveRange(pieceType);
   const moveDirections = getPieceMoveDirections(pieceType);
+  const specialRules = getPieceSpecialRules(pieceType);
   const boardSize = board.length;
   
   moveDirections.forEach(([dRow, dCol]) => {
@@ -342,8 +372,17 @@ export const getPossibleMoves = (pieceType, fromRow, fromCol, board, pieceOwners
         // 空位置，可以移動
         moves.push({ row: newRow, col: newCol, type: 'move' });
       } else {
-        // 遇到棋子就停止這個方向，移動不能攻擊
-        break;
+        // 遇到棋子，檢查是否可以穿過
+        const pieceKey = `${newRow}-${newCol}`;
+        const pieceOwner = pieceOwners[pieceKey];
+        
+        if (specialRules.canMoveThroughAllies && pieceOwner === currentPlayer) {
+          // 可以穿過己方棋子，但不添加到移動列表中（因為不能移動到友方棋子位置）
+          // 繼續檢查更遠的位置
+        } else {
+          // 不能穿過，停止這個方向
+          break;
+        }
       }
     }
   });
@@ -374,7 +413,9 @@ export const getPossibleAttacks = (pieceType, fromRow, fromCol, board, pieceOwne
         const pieceKey = `${newRow}-${newCol}`;
         const targetOwner = pieceOwners[pieceKey];
         
+        // 只對敵方棋子顯示攻擊提示
         if (targetOwner && targetOwner !== currentPlayer) {
+          console.log(`攻擊目標: [${newRow},${newCol}] 敵方棋子 ${targetPiece}`);
           // 檢查特殊規則
           if (specialRules.requiresAllyInFront) {
             // 弓箭手需要前方有己方棋子
@@ -388,7 +429,10 @@ export const getPossibleAttacks = (pieceType, fromRow, fromCol, board, pieceOwne
             // 普通攻擊
             attacks.push({ row: newRow, col: newCol, type: 'attack' });
           }
+        } else if (targetOwner === currentPlayer) {
+          console.log(`跳過友方棋子: [${newRow},${newCol}] 友方棋子 ${targetPiece}`);
         }
+        // 如果是友方棋子，不顯示攻擊提示（不添加攻擊位置）
         
         // 如果不能越過棋子攻擊，就停止這個方向
         if (!specialRules.canAttackOverPieces) {
@@ -431,13 +475,17 @@ const hasAllyInFront = (fromRow, fromCol, targetRow, targetCol, board, pieceOwne
 // 檢查移動是否合法
 export const isValidMove = (pieceType, fromRow, fromCol, toRow, toCol, board, pieceOwners, currentPlayer) => {
   const possibleMoves = getPossibleMoves(pieceType, fromRow, fromCol, board, pieceOwners, currentPlayer);
-  return possibleMoves.some(move => move.row === toRow && move.col === toCol);
+  const isValid = possibleMoves.some(move => move.row === toRow && move.col === toCol);
+  console.log(`isValidMove: [${fromRow},${fromCol}] -> [${toRow},${toCol}] = ${isValid}, possibleMoves count: ${possibleMoves.length}`);
+  return isValid;
 };
 
 // 檢查攻擊是否合法
 export const isValidAttack = (pieceType, fromRow, fromCol, toRow, toCol, board, pieceOwners, currentPlayer) => {
   const possibleAttacks = getPossibleAttacks(pieceType, fromRow, fromCol, board, pieceOwners, currentPlayer);
-  return possibleAttacks.some(attack => attack.row === toRow && attack.col === toCol);
+  const isValid = possibleAttacks.some(attack => attack.row === toRow && attack.col === toCol);
+  console.log(`isValidAttack: [${fromRow},${fromCol}] -> [${toRow},${toCol}] = ${isValid}, possibleAttacks count: ${possibleAttacks.length}`);
+  return isValid;
 };
 
 // 檢查是否為相鄰位置

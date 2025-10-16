@@ -11,6 +11,7 @@ import SamuraiPiece from './SamuraiPiece';
 import WarArchitectPiece from './WarArchitectPiece';
 import SleepyDogPiece from './SleepyDogPiece';
 import CarnivorousCrabPiece from './CarnivorousCrabPiece';
+import CastlePiece from './CastlePiece';
 import { getPieceMaxHealth, getPieceHealth, getPieceAttackType } from '../pieceRules';
 
 const { width: screenWidth } = Dimensions.get('window');
@@ -18,35 +19,72 @@ const BOARD_SIZE = 8;
 const CELL_SIZE = Math.min(screenWidth / BOARD_SIZE - 1, 50);
 
 // 血條組件
-const HealthBar = ({ piece, currentHealth, maxHealth }) => {
+const HealthBar = ({ piece, currentHealth, maxHealth, isPlayerPiece }) => {
   if (!piece || piece === 'empty') return null;
   
-  // 血條總是顯示100滴血的寬度，分為綠色和紅色兩部分
-  // 200血棋子：全綠(200血) → 一半綠一半紅(150血) → 全紅(100血) → 空(0血)
-  // 100血棋子：全紅(100血) → 空(0血)
   
-  let greenWidth = 0; // 綠色血條寬度（左側）
-  let redWidth = 0;   // 紅色血條寬度（右側）
+  // 血條顯示邏輯：支持不同血量的棋子
+  // 300血棋子（英雄/城堡）：紫色血條
+  // 200血棋子：綠色 + 紅色
+  // 100血棋子：紅色
+  
+  let purpleWidth = 0; // 紫色血條寬度（英雄/城堡）
+  let greenWidth = 0;  // 綠色血條寬度
+  let redWidth = 0;    // 紅色血條寬度
+  
+  // 檢查是否為英雄或城堡（300血）
+  const isHeroOrCastle = piece === 'MT' || piece === 'CASTLE' || piece === 'WA';
   
   if (currentHealth <= 0) {
     // 空血條
+    purpleWidth = 0;
     greenWidth = 0;
     redWidth = 0;
-  } else if (currentHealth <= 100) {
-    // 只有紅色（1-100血）
-    greenWidth = 0;
-    redWidth = (currentHealth / 100) * 100; // 紅色部分：0-100%
-  } else if (currentHealth <= 200) {
-    // 綠色 + 紅色（101-200血）
-    const greenHealth = currentHealth - 100; // 綠色部分的血量 (0-100)
-    greenWidth = (greenHealth / 100) * 100; // 綠色佔左側：0-100%
-    redWidth = 100; // 紅色佔右側：固定100%（但會被綠色覆蓋）
+  } else {
+    // 每種顏色100血
+    if (currentHealth > 200) {
+      // 紫色部分（201-300血）
+      purpleWidth = ((currentHealth - 200) / 100) * 100; // 紫色：0-100%
+      greenWidth = 100; // 綠色：固定100%
+      redWidth = 100; // 紅色：固定100%
+    } else if (currentHealth > 100) {
+      // 綠色部分（101-200血）
+      greenWidth = ((currentHealth - 100) / 100) * 100; // 綠色：0-100%
+      redWidth = 100; // 紅色：固定100%
+      purpleWidth = 0; // 紫色：0%
+    } else {
+      // 紅色部分（1-100血）
+      redWidth = (currentHealth / 100) * 100; // 紅色：0-100%
+      greenWidth = 0; // 綠色：0%
+      purpleWidth = 0; // 紫色：0%
+    }
   }
   
   return (
-    <View style={styles.healthBarContainer}>
-      <View style={styles.healthBarBackground}>
-        {/* 綠色血條（上層，覆蓋紅色） */}
+    <View style={[
+      styles.healthBarContainer,
+      isPlayerPiece && styles.playerHealthBarContainer
+    ]}>
+      <View style={[
+        styles.healthBarBackground,
+        isPlayerPiece && styles.playerHealthBarBackground
+      ]}>
+        {/* 紫色血條（英雄/城堡，最高層） */}
+        {purpleWidth > 0 && (
+          <View 
+            style={[
+              styles.healthBarFill, 
+              { 
+                width: `${purpleWidth}%`,
+                backgroundColor: '#9C27B0', // 紫色
+                position: 'absolute',
+                left: 0,
+                zIndex: 3,
+              }
+            ]} 
+          />
+        )}
+        {/* 綠色血條（中層，覆蓋紅色） */}
         {greenWidth > 0 && (
           <View 
             style={[
@@ -82,7 +120,7 @@ const HealthBar = ({ piece, currentHealth, maxHealth }) => {
 };
 
 // 統一的棋子管理器
-const PieceManager = ({ piece, isSelected, isHighlighted, currentHealth, maxHealth }) => {
+const PieceManager = ({ piece, isSelected, isHighlighted, currentHealth, maxHealth, isPlayerPiece }) => {
   // 如果沒有傳入血量，使用默認值
   const pieceHealth = currentHealth !== undefined ? currentHealth : getPieceHealth(piece);
   const pieceMaxHealth = maxHealth !== undefined ? maxHealth : getPieceMaxHealth(piece);
@@ -114,6 +152,8 @@ const PieceManager = ({ piece, isSelected, isHighlighted, currentHealth, maxHeal
         return <SleepyDogPiece isSelected={isSelected} isHighlighted={isHighlighted} />;
       case 'CC': // 食人螃蟹
         return <CarnivorousCrabPiece isSelected={isSelected} isHighlighted={isHighlighted} />;
+      case 'CASTLE': // 中古城堡
+        return <CastlePiece isSelected={isSelected} isHighlighted={isHighlighted} />;
       default:
         return <EmptyPiece />;
     }
@@ -122,7 +162,12 @@ const PieceManager = ({ piece, isSelected, isHighlighted, currentHealth, maxHeal
   return (
     <View style={styles.pieceWithHealth}>
       {pieceComponent}
-      <HealthBar piece={piece} currentHealth={pieceHealth} maxHealth={pieceMaxHealth} />
+      <HealthBar 
+        piece={piece} 
+        currentHealth={pieceHealth} 
+        maxHealth={pieceMaxHealth} 
+        isPlayerPiece={isPlayerPiece}
+      />
     </View>
   );
 };
@@ -196,12 +241,23 @@ const styles = StyleSheet.create({
   },
   healthBarBackground: {
     width: '100%',
-    height: 4,
+    height: 8, // 增加血條高度
     backgroundColor: 'rgba(0, 0, 0, 0.5)',
-    borderRadius: 2,
+    borderRadius: 4, // 相應增加圓角
     overflow: 'hidden',
-    borderWidth: 0.5,
-    borderColor: 'rgba(255, 255, 255, 0.3)',
+    borderWidth: 1.5,
+    borderColor: '#FFFFFF', // 白色外框
+  },
+  playerHealthBarContainer: {
+    // 我方棋子血條容器的額外樣式
+    borderWidth: 1.5,
+    borderColor: '#000000', // 黑色外框
+    borderRadius: 4,
+  },
+  playerHealthBarBackground: {
+    borderWidth: 1,
+    borderColor: '#000000', // 黑色外框
+    backgroundColor: 'rgba(0, 0, 0, 0.8)', // 深色背景
   },
   healthBarFill: {
     height: '100%',

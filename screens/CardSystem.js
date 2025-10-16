@@ -108,7 +108,7 @@ export const CardComponent = ({ card, onPress, isSelected = false, size = 'norma
   const cardSize = size === 'small' ? 40 : size === 'large' ? 80 : 50;
   const fontSize = size === 'small' ? 8 : size === 'large' ? 12 : 9;
   
-  // 選中時放大效果 - 可以蓋住棋盤和手牌區
+  // 選中時放大效果 - 2.5倍大小
   const scale = isSelected ? 2.5 : 1;
   const zIndex = isSelected ? 20 : 1;
   
@@ -293,12 +293,12 @@ export const CardSystem = ({
   onPlayCard, 
   onDrawCard, 
   selectedCard, 
-  mana,
   onRemoveCard, // 新增：用於移除手牌的函數
   onEndTurn, // 新增：結束回合的函數
   currentPlayer, // 新增：當前玩家
   aiPlayedCard, // 新增：AI出的牌
-  showAiPlayedCard // 新增：是否顯示AI出牌動畫
+  showAiPlayedCard, // 新增：是否顯示AI出牌動畫
+  actionPoints // 新增：行動點
 }) => {
   // 拖曳狀態
   const [draggingCard, setDraggingCard] = useState(null);
@@ -307,8 +307,8 @@ export const CardSystem = ({
   
   // 處理向上滑動出牌
   const handleSwipeUp = (card) => {
-    if (card && card.cost && mana.current >= card.cost) {
-      playCard(card);
+    if (card) {
+      playCardAction(card);
     }
   };
   
@@ -331,46 +331,51 @@ export const CardSystem = ({
     // 如果拖曳到螢幕中央區域（棋盤區域），則出牌
     // 放寬條件：水平偏移小於螢幕寬度的40%，垂直向上移動超過50px
     if (Math.abs(dx) < screenWidth * 0.4 && dy < -50) {
-      console.log(`符合出牌條件 - 法力: ${mana.current}, 消耗: ${card ? card.cost : 'N/A'}`);
-      if (card && card.cost && mana.current >= card.cost) {
-        playCard(card);
+      console.log(`符合出牌條件 - 卡片: ${card ? card.name : 'N/A'}`);
+      if (card) {
+        playCardAction(card);
       } else {
-        console.log('法力不足或卡片無效，無法出牌');
+        console.log('卡片無效，無法出牌');
       }
     } else {
       console.log('不符合出牌條件');
     }
   };
   
-  // 出牌函數
-  const playCard = (card) => {
+  // 選中卡片函數（用於查看卡片）
+  const selectCard = (card) => {
+    // 直接調用父組件的選中邏輯
+    if (onPlayCard) {
+      onPlayCard(card);
+    }
+  };
+
+  // 出牌函數（用於實際出牌）
+  const playCardAction = (card) => {
     // 檢查卡片是否有效
-    if (!card || !card.cost) {
+    if (!card) {
       console.log('無效的卡片，無法出牌');
       return;
     }
     
-    if (mana.current >= card.cost) {
-      // 立即移除手牌
+    // 顯示打出牌的動畫
+    setPlayedCard(card);
+    setShowPlayedCard(true);
+    
+    // 1秒後隱藏動畫並執行出牌邏輯
+    setTimeout(() => {
+      setShowPlayedCard(false);
+      // 調用父組件的出牌邏輯
+      onPlayCard(card);
+      // 移除手牌（在動畫完成後）
       if (onRemoveCard) {
         onRemoveCard(card);
       }
-      
-      // 顯示打出牌的動畫
-      setPlayedCard(card);
-      setShowPlayedCard(true);
-      
-      // 1秒後隱藏動畫並執行出牌邏輯
+      // 再過0.5秒後清除卡片狀態
       setTimeout(() => {
-        setShowPlayedCard(false);
-        // 調用父組件的出牌邏輯（處理法力消耗等）
-        onPlayCard(card);
-        // 再過0.5秒後清除卡片狀態
-        setTimeout(() => {
-          setPlayedCard(null);
-        }, 500);
-      }, 1000);
-    }
+        setPlayedCard(null);
+      }, 500);
+    }, 1000);
   };
   // 獲取選中卡片的索引
   const getSelectedCardIndex = () => {
@@ -411,31 +416,37 @@ export const CardSystem = ({
           />
         </View>
 
-        {/* 法力水晶顯示 - 右上角 */}
-        <View style={styles.manaContainer}>
-          <Text style={styles.manaText}>{mana.current}/{mana.max}</Text>
-        </View>
 
         {/* 玩家區域 - 下方 */}
         <View style={styles.playerArea}>
           {/* 玩家手牌 - 下方中央 */}
           <HandArea 
             cards={playerHand}
-            onCardPress={onPlayCard}
+            onCardPress={selectCard}
             selectedCard={selectedCard}
             isEnemy={false}
-            onSwipeUp={handleSwipeUp}
+            onSwipeUp={playCardAction}
             onDrag={handleDrag}
             onDragEnd={handleDragEnd}
             draggingCard={draggingCard}
           />
 
           {/* 玩家牌堆 - 右下方 */}
-          <DeckComponent 
-            count={playerDeck.length} 
-            onPress={() => onDrawCard('human')} 
-            isEnemy={false}
-          />
+          <View style={styles.playerDeckContainer}>
+            <DeckComponent 
+              count={playerDeck.length} 
+              onPress={() => onDrawCard('human')} 
+              isEnemy={false}
+            />
+            
+            {/* 行動點顯示 - 在玩家牌堆下方 */}
+            {currentPlayer === 'human' && actionPoints && (
+              <View style={styles.actionPointsDisplay}>
+                <Text style={styles.actionPointsLabel}>⚡ 行動點</Text>
+                <Text style={styles.actionPointsValue}>{actionPoints.current}/{actionPoints.max}</Text>
+              </View>
+            )}
+          </View>
         </View>
 
         {/* 結束回合按鈕 - 只在玩家回合顯示 */}
@@ -455,7 +466,7 @@ export const CardSystem = ({
         <View style={[styles.selectedCardOverlay, getCardPosition(selectedCardIndex)]}>
           <CardComponent
             card={selectedCard}
-            onPress={onPlayCard}
+            onPress={selectCard}
             isSelected={true}
             size="normal"
           />
@@ -503,6 +514,7 @@ const styles = StyleSheet.create({
     zIndex: 1,
     overflow: 'visible',
     elevation: 0, // Android 上確保不會限制子元素
+    pointerEvents: 'box-none', // 允許點擊事件穿透到下層
   },
   // 卡片樣式
   card: {
@@ -599,7 +611,6 @@ const styles = StyleSheet.create({
   selectedCardOverlay: {
     position: 'absolute',
     zIndex: 1000, // 最高層級，確保在棋盤上方
-    transform: [{ scale: 1.3 }], // 放大1.3倍
   },
   // 牌堆樣式
   deck: {
@@ -751,6 +762,7 @@ const styles = StyleSheet.create({
     justifyContent: 'center',
     alignItems: 'center',
     zIndex: 2000,
+    pointerEvents: 'box-none', // 允許點擊事件穿透到下層
   },
   playedCardContainer: {
     alignItems: 'center',
@@ -796,5 +808,31 @@ const styles = StyleSheet.create({
     fontSize: 16,
     fontWeight: 'bold',
     textAlign: 'center',
+  },
+  // 玩家牌堆容器樣式
+  playerDeckContainer: {
+    alignItems: 'center',
+  },
+  // 行動點顯示樣式
+  actionPointsDisplay: {
+    marginTop: 8,
+    backgroundColor: 'rgba(0, 0, 0, 0.6)',
+    paddingHorizontal: 12,
+    paddingVertical: 6,
+    borderRadius: 12,
+    borderWidth: 1,
+    borderColor: 'rgba(255, 255, 255, 0.3)',
+    alignItems: 'center',
+  },
+  actionPointsLabel: {
+    fontSize: 12,
+    color: '#FFFFFF',
+    opacity: 0.8,
+    marginBottom: 2,
+  },
+  actionPointsValue: {
+    fontSize: 16,
+    color: '#FFD700',
+    fontWeight: 'bold',
   },
 });

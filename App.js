@@ -12,11 +12,11 @@ export default function App() {
   const [currentScreen, setCurrentScreen] = useState('main');
   const [gameMode, setGameMode] = useState(null);
   const [playerDeck, setPlayerDeck] = useState({ 
-    pieces: ['S', 'SM', 'A', 'M', 'K', 'P'],
-    frontRowPieces: ['S', 'SM'],
-    specialPieces: ['A', 'M', 'K', 'P'],
+    pieces: ['S', 'SM', 'A', 'M', 'CASTLE', 'MT'],
+    frontRowPieces: ['S', 'SM'], // 前排2個基礎型
+    backRowPieces: ['A', 'M', 'CASTLE', 'MT'], // 中後排2個特殊型1個建築物1個英雄型
     name: '默認棋組' 
-  }); // 默認棋組（6個棋子：前排2個基礎型 + 特殊4個特殊型）
+  }); // 默認棋組（6個棋子：前排2個基礎型 + 中後排2個特殊型1個建築物1個英雄型）
 
   const navigateToScreen = (screen) => {
     setCurrentScreen(screen);

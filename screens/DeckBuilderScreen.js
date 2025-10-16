@@ -30,16 +30,19 @@ const AVAILABLE_PIECES = [
   { id: 'WA', name: '戰爭建築師', description: '防禦建設單位' },
   { id: 'SD', name: '睏睏狗', description: '催眠控制單位' },
   { id: 'CC', name: '食人螃蟹', description: '兇猛近戰單位' },
+  { id: 'CASTLE', name: '城堡', description: '不會動的防禦建築' },
 ];
 
 // 根據規則分類棋子
 const BASIC_PIECES = AVAILABLE_PIECES.filter(piece => getPieceCategory(piece.id) === 'basic');
 const SPECIAL_PIECES = AVAILABLE_PIECES.filter(piece => getPieceCategory(piece.id) === 'special');
+const HERO_PIECES = AVAILABLE_PIECES.filter(piece => getPieceCategory(piece.id) === 'hero');
+const STRUCTURE_PIECES = AVAILABLE_PIECES.filter(piece => getPieceCategory(piece.id) === 'structure');
 
 const DeckBuilderScreen = ({ onBack, onSaveDeck }) => {
-  // 新的狀態管理：分為前排和特殊棋子
+  // 新的狀態管理：分為前排、中後排
   const [frontRowPieces, setFrontRowPieces] = useState(['S', 'SM']); // 前排棋子（基礎型，最多2個）
-  const [specialPieces, setSpecialPieces] = useState(['A', 'M', 'K', 'P']); // 特殊棋子（特殊型，最多4個）
+  const [backRowPieces, setBackRowPieces] = useState(['A', 'M', 'P', 'MT']); // 中後排棋子（3個特殊型 + 1個英雄型）
   const [selectedPiece, setSelectedPiece] = useState(null);
   const [savedDecks, setSavedDecks] = useState([]);
   const [showMyDecks, setShowMyDecks] = useState(false);
@@ -69,7 +72,7 @@ const DeckBuilderScreen = ({ onBack, onSaveDeck }) => {
 
   // 獲取所有選中的棋子（用於顯示和保存）
   const getAllSelectedPieces = () => {
-    return [...frontRowPieces, ...specialPieces];
+    return [...frontRowPieces, ...backRowPieces];
   };
 
   // 選擇前排棋子（基礎型）
@@ -85,15 +88,24 @@ const DeckBuilderScreen = ({ onBack, onSaveDeck }) => {
     }
   };
 
-  // 選擇特殊棋子（特殊型）
-  const toggleSpecialPiece = (pieceId) => {
-    if (specialPieces.includes(pieceId)) {
-      setSpecialPieces(specialPieces.filter(id => id !== pieceId));
+  // 選擇中後排棋子（特殊型 + 英雄型）
+  const toggleBackRowPiece = (pieceId) => {
+    if (backRowPieces.includes(pieceId)) {
+      setBackRowPieces(backRowPieces.filter(id => id !== pieceId));
     } else {
-      if (specialPieces.length < 4) {
-        setSpecialPieces([...specialPieces, pieceId]);
+      // 檢查是否為英雄型
+      const isHero = getPieceCategory(pieceId) === 'hero';
+      const currentHeroCount = backRowPieces.filter(id => getPieceCategory(id) === 'hero').length;
+      const currentSpecialCount = backRowPieces.filter(id => getPieceCategory(id) === 'special').length;
+      
+      if (isHero && currentHeroCount >= 1) {
+        Alert.alert('提示', '中後排最多只能選擇1個英雄型棋子！');
+      } else if (!isHero && currentSpecialCount >= 3) {
+        Alert.alert('提示', '中後排最多只能選擇3個特殊型棋子！');
+      } else if (backRowPieces.length >= 4) {
+        Alert.alert('提示', '中後排最多只能選擇4個棋子（3個特殊型 + 1個英雄型）！');
       } else {
-        Alert.alert('提示', '特殊區域最多只能選擇4個特殊型棋子！');
+        setBackRowPieces([...backRowPieces, pieceId]);
       }
     }
   };
@@ -101,7 +113,7 @@ const DeckBuilderScreen = ({ onBack, onSaveDeck }) => {
   const saveDeck = async () => {
     const allPieces = getAllSelectedPieces();
     if (allPieces.length !== 6) {
-      Alert.alert('錯誤', '棋組必須包含6個棋子（前排2個基礎型 + 特殊4個特殊型）！');
+      Alert.alert('錯誤', '棋組必須包含6個棋子（前排2個基礎型 + 中後排3個特殊型1個英雄型）！');
       return;
     }
 
@@ -122,7 +134,7 @@ const DeckBuilderScreen = ({ onBack, onSaveDeck }) => {
         name: tempSaveDeckName.trim(),
         pieces: allPieces,
         frontRowPieces: frontRowPieces,
-        specialPieces: specialPieces,
+        backRowPieces: backRowPieces,
         createdAt: new Date().toISOString()
       };
       
@@ -149,7 +161,7 @@ const DeckBuilderScreen = ({ onBack, onSaveDeck }) => {
   const saveToMyDecks = async () => {
     const allPieces = getAllSelectedPieces();
     if (allPieces.length !== 6) {
-      Alert.alert('錯誤', '棋組必須包含6個棋子（前排2個基礎型 + 特殊4個特殊型）！');
+      Alert.alert('錯誤', '棋組必須包含6個棋子（前排2個基礎型 + 中後排3個特殊型1個英雄型）！');
       return;
     }
 
@@ -160,7 +172,7 @@ const DeckBuilderScreen = ({ onBack, onSaveDeck }) => {
         name: deckName,
         pieces: allPieces,
         frontRowPieces: frontRowPieces,
-        specialPieces: specialPieces,
+        backRowPieces: backRowPieces,
         createdAt: new Date().toISOString()
       };
       
@@ -177,15 +189,23 @@ const DeckBuilderScreen = ({ onBack, onSaveDeck }) => {
 
   // 載入棋組
   const loadDeck = (deck) => {
-    // 如果是新格式的棋組（有frontRowPieces和specialPieces）
-    if (deck.frontRowPieces && deck.specialPieces) {
+    // 如果是新格式的棋組（有frontRowPieces和backRowPieces）
+    if (deck.frontRowPieces && deck.backRowPieces) {
       setFrontRowPieces(deck.frontRowPieces);
-      setSpecialPieces(deck.specialPieces);
+      setBackRowPieces(deck.backRowPieces);
+    } else if (deck.frontRowPieces && deck.middleRowPieces && deck.heroPiece) {
+      // 兼容舊格式（前排2個 + 中排3個 + 英雄1個）
+      setFrontRowPieces(deck.frontRowPieces);
+      setBackRowPieces([...deck.middleRowPieces, ...deck.heroPiece]);
+    } else if (deck.frontRowPieces && deck.specialPieces) {
+      // 兼容更舊格式（前排2個 + 特殊4個）
+      setFrontRowPieces(deck.frontRowPieces);
+      setBackRowPieces(deck.specialPieces);
     } else {
-      // 兼容舊格式，將前2個設為前排，後4個設為特殊
+      // 兼容最舊格式，將前2個設為前排，後4個設為中後排
       const pieces = deck.pieces || [];
       setFrontRowPieces(pieces.slice(0, 2));
-      setSpecialPieces(pieces.slice(2, 6));
+      setBackRowPieces(pieces.slice(2, 6));
     }
     setShowMyDecks(false);
     Alert.alert('成功', `已載入「${deck.name}」！`);
@@ -258,13 +278,13 @@ const DeckBuilderScreen = ({ onBack, onSaveDeck }) => {
           newPieces[index] = temp;
           setFrontRowPieces(newPieces);
         }
-      } else if (section === 'special') {
-        if (index < specialPieces.length) {
-          const newPieces = [...specialPieces];
+      } else if (section === 'back') {
+        if (index < backRowPieces.length) {
+          const newPieces = [...backRowPieces];
           const temp = newPieces[selectedPieceIndex];
           newPieces[selectedPieceIndex] = newPieces[index];
           newPieces[index] = temp;
-          setSpecialPieces(newPieces);
+          setBackRowPieces(newPieces);
         }
       }
       setSelectedPieceIndex(null);
@@ -288,7 +308,7 @@ const DeckBuilderScreen = ({ onBack, onSaveDeck }) => {
         {/* 標題 */}
         <View style={styles.titleContainer}>
           <Text style={styles.title}>編制棋組</Text>
-          <Text style={styles.subtitle}>前排2個基礎型 + 特殊4個特殊型 ({getAllSelectedPieces().length}/6)</Text>
+          <Text style={styles.subtitle}>前排2個基礎型 + 中後排3個特殊型1個英雄型 ({getAllSelectedPieces().length}/6)</Text>
         </View>
 
         {/* 保存按鈕 */}
@@ -342,7 +362,7 @@ const DeckBuilderScreen = ({ onBack, onSaveDeck }) => {
               ? '點擊棋子選中，再點擊另一個棋子交換位置' 
               : `已選中 ${selectedSection === 'front' 
                   ? AVAILABLE_PIECES.find(p => p.id === frontRowPieces[selectedPieceIndex])?.name
-                  : AVAILABLE_PIECES.find(p => p.id === specialPieces[selectedPieceIndex])?.name
+                  : AVAILABLE_PIECES.find(p => p.id === backRowPieces[selectedPieceIndex])?.name
                 }，點擊其他棋子交換位置`
             }
           </Text>
@@ -392,42 +412,99 @@ const DeckBuilderScreen = ({ onBack, onSaveDeck }) => {
             </View>
           </View>
 
-          {/* 特殊區域 */}
+          {/* 特殊型區域 */}
           <View style={styles.previewSection}>
-            <Text style={styles.previewSectionTitle}>特殊棋子 (特殊型) {specialPieces.length}/4</Text>
+            <Text style={styles.previewSectionTitle}>特殊型棋子 {backRowPieces.filter(id => getPieceCategory(id) === 'special').length}/3</Text>
             <View style={styles.previewContainer}>
               <View style={styles.previewGrid}>
-                {specialPieces.map((pieceId, index) => (
-                  <TouchableOpacity
-                    key={`special-${index}`}
-                    style={[
-                      styles.previewPiece,
-                      selectedPieceIndex === index && selectedSection === 'special' && styles.selectedPiece,
-                    ]}
-                    onPress={() => handlePieceClick(index, 'special')}
-                    activeOpacity={0.8}
-                  >
-                    <View style={styles.previewPieceContainer}>
-                      <PieceManager 
-                        piece={pieceId} 
-                        isSelected={selectedPieceIndex === index && selectedSection === 'special'} 
-                        isHighlighted={false}
-                        currentHealth={undefined}
-                        maxHealth={undefined}
-                      />
-                    </View>
-                    <Text style={styles.previewPieceText}>
-                      {AVAILABLE_PIECES.find(p => p.id === pieceId)?.name}
-                    </Text>
-                    {selectedPieceIndex === index && selectedSection === 'special' && (
-                      <View style={styles.selectedIndicator} />
-                    )}
-                  </TouchableOpacity>
-                ))}
-                {/* 特殊空位 */}
-                {Array.from({ length: 4 - specialPieces.length }).map((_, index) => (
+                {backRowPieces.filter(id => getPieceCategory(id) === 'special').map((pieceId, index) => {
+                  const originalIndex = backRowPieces.findIndex(id => id === pieceId);
+                  return (
+                    <TouchableOpacity
+                      key={`special-${index}`}
+                      style={[
+                        styles.previewPiece,
+                        selectedPieceIndex === originalIndex && selectedSection === 'back' && styles.selectedPiece,
+                      ]}
+                      onPress={() => handlePieceClick(originalIndex, 'back')}
+                      activeOpacity={0.8}
+                    >
+                      <View style={styles.previewPieceContainer}>
+                        <PieceManager 
+                          piece={pieceId} 
+                          isSelected={selectedPieceIndex === originalIndex && selectedSection === 'back'} 
+                          isHighlighted={false}
+                          currentHealth={undefined}
+                          maxHealth={undefined}
+                        />
+                      </View>
+                      <Text style={styles.previewPieceText}>
+                        {AVAILABLE_PIECES.find(p => p.id === pieceId)?.name}
+                      </Text>
+                      <Text style={[styles.previewPieceCategory, styles.specialCategory]}>
+                        特殊
+                      </Text>
+                      {selectedPieceIndex === originalIndex && selectedSection === 'back' && (
+                        <View style={styles.selectedIndicator} />
+                      )}
+                    </TouchableOpacity>
+                  );
+                })}
+                {/* 特殊型空位 */}
+                {Array.from({ length: 3 - backRowPieces.filter(id => getPieceCategory(id) === 'special').length }).map((_, index) => (
                   <View 
                     key={`special-empty-${index}`} 
+                    style={styles.emptySlot}
+                  >
+                    <Text style={styles.emptySlotText}>空</Text>
+                  </View>
+                ))}
+              </View>
+            </View>
+          </View>
+
+          {/* 英雄型區域 */}
+          <View style={styles.previewSection}>
+            <Text style={styles.previewSectionTitle}>英雄型棋子 {backRowPieces.filter(id => getPieceCategory(id) === 'hero').length}/1</Text>
+            <View style={styles.previewContainer}>
+              <View style={styles.previewGrid}>
+                {backRowPieces.filter(id => getPieceCategory(id) === 'hero').map((pieceId, index) => {
+                  const originalIndex = backRowPieces.findIndex(id => id === pieceId);
+                  return (
+                    <TouchableOpacity
+                      key={`hero-${index}`}
+                      style={[
+                        styles.previewPiece,
+                        selectedPieceIndex === originalIndex && selectedSection === 'back' && styles.selectedPiece,
+                      ]}
+                      onPress={() => handlePieceClick(originalIndex, 'back')}
+                      activeOpacity={0.8}
+                    >
+                      <View style={styles.previewPieceContainer}>
+                        <PieceManager 
+                          piece={pieceId} 
+                          isSelected={selectedPieceIndex === originalIndex && selectedSection === 'back'} 
+                          isHighlighted={false}
+                          currentHealth={undefined}
+                          maxHealth={undefined}
+                        />
+                      </View>
+                      <Text style={styles.previewPieceText}>
+                        {AVAILABLE_PIECES.find(p => p.id === pieceId)?.name}
+                      </Text>
+                      <Text style={[styles.previewPieceCategory, styles.heroCategory]}>
+                        英雄
+                      </Text>
+                      {selectedPieceIndex === originalIndex && selectedSection === 'back' && (
+                        <View style={styles.selectedIndicator} />
+                      )}
+                    </TouchableOpacity>
+                  );
+                })}
+                {/* 英雄型空位 */}
+                {Array.from({ length: 1 - backRowPieces.filter(id => getPieceCategory(id) === 'hero').length }).map((_, index) => (
+                  <View 
+                    key={`hero-empty-${index}`} 
                     style={styles.emptySlot}
                   >
                     <Text style={styles.emptySlotText}>空</Text>
@@ -440,7 +517,7 @@ const DeckBuilderScreen = ({ onBack, onSaveDeck }) => {
 
         {/* 棋子選擇區域 */}
         <View style={styles.pieceSelection}>
-          {/* 基礎型棋子選擇 */}
+          {/* 基礎型棋子選擇 (前排) */}
           <View style={styles.pieceCategorySection}>
             <Text style={styles.sectionTitle}>基礎型棋子 (前排)</Text>
             <Text style={styles.categorySubtitle}>選擇2個基礎型棋子作為前排</Text>
@@ -477,21 +554,21 @@ const DeckBuilderScreen = ({ onBack, onSaveDeck }) => {
             </View>
           </View>
 
-          {/* 特殊型棋子選擇 */}
+          {/* 特殊型和英雄型棋子選擇 (中後排) */}
           <View style={styles.pieceCategorySection}>
-            <Text style={styles.sectionTitle}>特殊型棋子 (特殊)</Text>
-            <Text style={styles.categorySubtitle}>選擇4個特殊型棋子作為特殊部隊</Text>
+            <Text style={styles.sectionTitle}>特殊型和英雄型棋子 (中後排)</Text>
+            <Text style={styles.categorySubtitle}>選擇3個特殊型 + 1個英雄型棋子作為中後排</Text>
             <View style={styles.pieceGrid}>
-              {SPECIAL_PIECES.map((piece) => (
+              {[...SPECIAL_PIECES, ...HERO_PIECES].map((piece) => (
                 <TouchableOpacity
                   key={piece.id}
                   style={[
                     styles.pieceCard,
-                    specialPieces.includes(piece.id) && styles.selectedCard,
+                    backRowPieces.includes(piece.id) && styles.selectedCard,
                   ]}
                   onPress={() => {
                     setSelectedPiece(piece.id);
-                    toggleSpecialPiece(piece.id);
+                    toggleBackRowPiece(piece.id);
                   }}
                   activeOpacity={0.8}
                 >
@@ -507,7 +584,12 @@ const DeckBuilderScreen = ({ onBack, onSaveDeck }) => {
                     </View>
                     <Text style={styles.pieceName}>{piece.name}</Text>
                     <Text style={styles.pieceDescription}>{piece.description}</Text>
-                    <Text style={[styles.pieceCategory, styles.specialCategory]}>特殊型</Text>
+                    <Text style={[
+                      styles.pieceCategory, 
+                      getPieceCategory(piece.id) === 'hero' ? styles.heroCategory : styles.specialCategory
+                    ]}>
+                      {getPieceCategory(piece.id) === 'hero' ? '英雄型' : '特殊型'}
+                    </Text>
                   </View>
                 </TouchableOpacity>
               ))}
@@ -603,31 +685,68 @@ const DeckBuilderScreen = ({ onBack, onSaveDeck }) => {
                       </View>
                     </View>
                     
-                    {/* 顯示棋組中的棋子 */}
+                    {/* 顯示棋組中的棋子 - 前排2個，後排4個 */}
                     <View style={styles.deckPiecesPreview}>
-                      <View style={styles.deckPiecesGrid}>
-                        {deck.pieces.map((pieceId, index) => (
-                          <View key={index} style={styles.deckPieceItem}>
-                            <View style={styles.deckPieceContainer}>
-                              <PieceManager 
-                                piece={pieceId} 
-                                isSelected={false} 
-                                isHighlighted={false}
-                                currentHealth={undefined}
-                                maxHealth={undefined}
-                              />
+                      {/* 前排2個棋子 */}
+                      <View style={styles.deckFrontRowGrid}>
+                        {Array.from({ length: 2 }).map((_, index) => {
+                          const pieceId = deck.frontRowPieces ? deck.frontRowPieces[index] : deck.pieces[index];
+                          return (
+                            <View key={`deck-front-${index}`} style={styles.deckPieceItem}>
+                              {pieceId ? (
+                                <>
+                                  <View style={styles.deckPieceContainer}>
+                                    <PieceManager 
+                                      piece={pieceId} 
+                                      isSelected={false} 
+                                      isHighlighted={false}
+                                      currentHealth={undefined}
+                                      maxHealth={undefined}
+                                    />
+                                  </View>
+                                  <Text style={styles.deckPieceName}>
+                                    {AVAILABLE_PIECES.find(p => p.id === pieceId)?.name}
+                                  </Text>
+                                </>
+                              ) : (
+                                <View style={styles.deckEmptySlot}>
+                                  <Text style={styles.deckEmptySlotText}>空</Text>
+                                </View>
+                              )}
                             </View>
-                            <Text style={styles.deckPieceName}>
-                              {AVAILABLE_PIECES.find(p => p.id === pieceId)?.name}
-                            </Text>
-                          </View>
-                        ))}
-                        {/* 空位 */}
-                        {Array.from({ length: 6 - deck.pieces.length }).map((_, index) => (
-                          <View key={`empty-${index}`} style={styles.deckEmptySlot}>
-                            <Text style={styles.deckEmptySlotText}>空</Text>
-                          </View>
-                        ))}
+                          );
+                        })}
+                      </View>
+                      
+                      {/* 後排4個棋子 */}
+                      <View style={styles.deckBackRowGrid}>
+                        {Array.from({ length: 4 }).map((_, index) => {
+                          const pieceId = deck.backRowPieces ? deck.backRowPieces[index] : deck.pieces[index + 2];
+                          return (
+                            <View key={`deck-back-${index}`} style={styles.deckPieceItem}>
+                              {pieceId ? (
+                                <>
+                                  <View style={styles.deckPieceContainer}>
+                                    <PieceManager 
+                                      piece={pieceId} 
+                                      isSelected={false} 
+                                      isHighlighted={false}
+                                      currentHealth={undefined}
+                                      maxHealth={undefined}
+                                    />
+                                  </View>
+                                  <Text style={styles.deckPieceName}>
+                                    {AVAILABLE_PIECES.find(p => p.id === pieceId)?.name}
+                                  </Text>
+                                </>
+                              ) : (
+                                <View style={styles.deckEmptySlot}>
+                                  <Text style={styles.deckEmptySlotText}>空</Text>
+                                </View>
+                              )}
+                            </View>
+                          );
+                        })}
                       </View>
                     </View>
                   </View>
@@ -760,6 +879,9 @@ const styles = StyleSheet.create({
   specialCategory: {
     color: '#F44336', // 紅色表示特殊型
   },
+  heroCategory: {
+    color: '#FFD700', // 金色表示英雄型
+  },
   clickHint: {
     fontSize: 14,
     color: '#9370DB',
@@ -777,9 +899,9 @@ const styles = StyleSheet.create({
     backgroundColor: 'rgba(255, 255, 255, 0.05)',
     borderRadius: 15,
     paddingTop: 20,
-    paddingBottom: 40,
+    paddingBottom: 30,
     paddingHorizontal: 15,
-    minHeight: 200,
+    minHeight: 150,
   },
   previewGrid: {
     flexDirection: 'row',
@@ -788,6 +910,21 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     width: '100%',
     maxWidth: 320,
+  },
+  frontRowGrid: {
+    flexDirection: 'row',
+    justifyContent: 'center',
+    alignItems: 'center',
+    width: '100%',
+    marginBottom: 15,
+    gap: 5,
+  },
+  backRowGrid: {
+    flexDirection: 'row',
+    justifyContent: 'center',
+    alignItems: 'center',
+    width: '100%',
+    gap: 3,
   },
   previewPiece: {
     width: '22%',
@@ -800,11 +937,19 @@ const styles = StyleSheet.create({
     width: 50,
     height: 50,
     marginBottom: 12,
+    justifyContent: 'center',
+    alignItems: 'center',
+    transform: [{ translateY: 15 }],
   },
   previewPieceText: {
     fontSize: 12,
     color: '#FFFFFF',
     textAlign: 'center',
+  },
+  previewPieceCategory: {
+    fontSize: 8,
+    textAlign: 'center',
+    marginTop: 2,
   },
   selectedPiece: {
     backgroundColor: 'rgba(255, 215, 0, 0.2)',
@@ -1118,6 +1263,21 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     width: '100%',
     maxWidth: 280,
+  },
+  deckFrontRowGrid: {
+    flexDirection: 'row',
+    justifyContent: 'center',
+    alignItems: 'center',
+    width: '100%',
+    marginBottom: 10,
+    gap: 5,
+  },
+  deckBackRowGrid: {
+    flexDirection: 'row',
+    justifyContent: 'center',
+    alignItems: 'center',
+    width: '100%',
+    gap: 3,
   },
   deckPieceItem: {
     width: '20%',
