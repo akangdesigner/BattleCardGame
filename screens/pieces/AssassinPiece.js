@@ -6,7 +6,7 @@ const { width: screenWidth } = Dimensions.get('window');
 const BOARD_SIZE = 8;
 const CELL_SIZE = Math.min(screenWidth / BOARD_SIZE - 1, 50);
 
-const AssassinPiece = ({ isSelected, isHighlighted }) => {
+const AssassinPiece = ({ isSelected, isHighlighted, isSkillTarget }) => {
   return (
     <View style={styles.container}>
       {/* 刺客圖片 */}
@@ -16,6 +16,7 @@ const AssassinPiece = ({ isSelected, isHighlighted }) => {
           styles.assassinImage,
           isSelected && styles.selectedImage,
           isHighlighted && styles.highlightedImage,
+          isSkillTarget && styles.skillTargetImage,
         ]}
         resizeMode="contain"
       />
@@ -51,6 +52,16 @@ const styles = StyleSheet.create({
     borderWidth: 2,
     borderColor: '#FF6B6B',
     borderRadius: 4,
+  },
+  skillTargetImage: {
+    transform: [{ scale: 1.1 }],
+    shadowColor: '#FFD700', // 黃色光暈
+    shadowOffset: { width: 0, height: 0 },
+    shadowOpacity: 1.0,
+    shadowRadius: 15,
+    borderWidth: 4,
+    borderColor: '#FFD700', // 黃色邊框
+    borderRadius: 35,
   },
 });
 

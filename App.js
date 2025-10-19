@@ -5,6 +5,7 @@ import { LinearGradient } from 'expo-linear-gradient';
 import MainScreen from './screens/MainScreen';
 import GameModeSelection from './screens/GameModeSelection';
 import PieceIntroduction from './screens/PieceIntroduction';
+import RulesScreen from './screens/RulesScreen';
 import ChessBoard3D from './screens/ChessBoard3D';
 import DeckBuilderScreen from './screens/DeckBuilderScreen';
 
@@ -32,6 +33,10 @@ export default function App() {
 
   const handleDeckBuilder = () => {
     navigateToScreen('deckBuilder');
+  };
+
+  const handleRules = () => {
+    navigateToScreen('rules');
   };
 
   const handleSaveDeck = (newDeck) => {
@@ -68,6 +73,7 @@ export default function App() {
             onStartGame={handleStartGame}
             onPieceIntro={handlePieceIntro}
             onDeckBuilder={handleDeckBuilder}
+            onRules={handleRules}
           />
         );
       case 'gameMode':
@@ -80,6 +86,12 @@ export default function App() {
       case 'pieceIntro':
         return (
           <PieceIntroduction
+            onBack={handleBackToMain}
+          />
+        );
+      case 'rules':
+        return (
+          <RulesScreen
             onBack={handleBackToMain}
           />
         );
@@ -104,6 +116,7 @@ export default function App() {
             onStartGame={handleStartGame}
             onPieceIntro={handlePieceIntro}
             onDeckBuilder={handleDeckBuilder}
+            onRules={handleRules}
           />
         );
     }

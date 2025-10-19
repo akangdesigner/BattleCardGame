@@ -24,19 +24,14 @@ import {
   getPieceAttackRange,
   getPieceCategory
 } from './pieceRules';
-import { CardSystem, CARD_TYPES } from './CardSystem';
+import { CardSystem, SKILL_CARDS } from './CardSystem';
 
 const BOARD_SIZE = 8;
 const { width: screenWidth, height: screenHeight } = Dimensions.get('window');
 const CELL_SIZE = Math.floor((screenWidth - 40) / BOARD_SIZE);
 
-// 座標轉換函數：將1-8座標轉換為0-7數組索引
-const toArrayIndex = (coord) => {
-  return coord - 1;
-};
-const toDisplayCoord = (index) => {
-  return index + 1;
-};
+// 座標系統：統一使用0-7座標系統
+// 棋盤大小：8x8，座標範圍：row 0-7, col 0-7
 
 // 棋子類型定義（增強3D效果）
 const PIECE_TYPES = {
@@ -148,6 +143,12 @@ const ChessBoard3D = ({ onBack, gameMode, playerDeck: initialPlayerDeck }) => {
   // AI出牌動畫狀態
   const [aiPlayedCard, setAiPlayedCard] = useState(null);
   const [showAiPlayedCard, setShowAiPlayedCard] = useState(false);
+  
+  // 技能卡牌使用狀態
+  const [pendingSkillCard, setPendingSkillCard] = useState(null);
+  const [isSelectingTarget, setIsSelectingTarget] = useState(false);
+  const [skillTargets, setSkillTargets] = useState([]);
+  const [hasShownSkillError, setHasShownSkillError] = useState(false);
 
   // 當初始棋組改變時更新棋盤上的棋子
   useEffect(() => {
@@ -176,7 +177,7 @@ const ChessBoard3D = ({ onBack, gameMode, playerDeck: initialPlayerDeck }) => {
       
       // 前排棋子 (基礎型)：交錯排列填滿整行
       // 第6行：基礎型1和基礎型2交錯排列
-      for (let col = 0; col < 8; col++) {
+      for (let col = 0; col < BOARD_SIZE; col++) {
         if (col % 2 === 0) {
           newBoard[6][col] = frontRowPieces[0] || 'S'; // 偶數列放第1個基礎型
         } else {
@@ -186,7 +187,7 @@ const ChessBoard3D = ({ onBack, gameMode, playerDeck: initialPlayerDeck }) => {
       
       // 第7行：在0,1,2列和5,6,7列放特殊棋子（複製1,2,3列到5,6,7列）
       // 先清空第7行
-      for (let col = 0; col < 8; col++) {
+      for (let col = 0; col < BOARD_SIZE; col++) {
         newBoard[7][col] = 'empty';
       }
       
@@ -263,16 +264,16 @@ const ChessBoard3D = ({ onBack, gameMode, playerDeck: initialPlayerDeck }) => {
       }, 500); // 給一點時間讓動畫完成
     }
   
-  }, [initialPlayerDeck]);
+  }, []); // 只在組件首次加載時執行，不依賴initialPlayerDeck
 
   // 初始化卡牌系統
   useEffect(() => {
-    const allCards = Object.values(CARD_TYPES);
+    const allCards = Object.values(SKILL_CARDS);
     const shuffledCards = [...allCards].sort(() => Math.random() - 0.5);
     
-    // 由於只有5張卡片，我們需要重複使用
+    // 由於只有7張技能卡片，我們需要重複使用
     const repeatedCards = [];
-    for (let i = 0; i < 8; i++) {
+    for (let i = 0; i < 6; i++) {
       repeatedCards.push(...shuffledCards);
     }
     
@@ -282,20 +283,374 @@ const ChessBoard3D = ({ onBack, gameMode, playerDeck: initialPlayerDeck }) => {
     setEnemyHand(repeatedCards.slice(35, 40));
   }, []);
 
-  // 卡牌相關函數 - 只處理選中邏輯
+  // 檢查玩家是否擁有技能卡牌所需的棋子
+  const hasRequiredPieces = (card) => {
+    if (!card || !card.requiredPieces) return true;
+    
+    // 遍歷棋盤找到玩家的棋子
+    const playerPieces = [];
+    for (let row = 0; row < BOARD_SIZE; row++) {
+      for (let col = 0; col < BOARD_SIZE; col++) {
+        const piece = board[row][col];
+        const pieceKey = `${row}-${col}`;
+        const pieceOwner = pieceOwners[pieceKey];
+        
+        if (piece !== 'empty' && pieceOwner === 'human') {
+          playerPieces.push(piece);
+        }
+      }
+    }
+    
+    // 檢查是否有任何所需的棋子
+    return card.requiredPieces.some(requiredPiece => 
+      playerPieces.includes(requiredPiece)
+    );
+  };
+
+  // 卡牌相關函數 - 處理技能卡牌使用
   const playCard = (card) => {
     if (currentPlayer === 'human') {
       if (card === null) {
         // 取消選中
         setSelectedCard(null);
+        setPendingSkillCard(null);
+        setIsSelectingTarget(false);
+        setSkillTargets([]);
+        setHasShownSkillError(false); // 重置錯誤提示狀態
       } else if (selectedCard && selectedCard.id === card.id) {
         // 如果點擊已選中的卡片，取消選中
         setSelectedCard(null);
+        setPendingSkillCard(null);
+        setIsSelectingTarget(false);
+        setSkillTargets([]);
+        setHasShownSkillError(false); // 重置錯誤提示狀態
+      } else if (isSelectingTarget && pendingSkillCard) {
+        // 如果正在選擇目標，則取消技能使用
+        setSelectedCard(null);
+        setPendingSkillCard(null);
+        setIsSelectingTarget(false);
+        setSkillTargets([]);
+        setHasShownSkillError(false); // 重置錯誤提示狀態
       } else {
-        // 如果點擊未選中的卡片，則選中它查看說明
+        // 檢查是否擁有所需的棋子
+        if (!hasRequiredPieces(card)) {
+          // 只在第一次嘗試使用時顯示錯誤提示
+          if (!hasShownSkillError) {
+            Alert.alert(
+              '無法使用技能',
+              `使用 ${card.name} 需要擁有對應的棋子：${card.requiredPieces.join(', ')}`
+            );
+            setHasShownSkillError(true);
+          }
+          return;
+        }
+        
+        // 如果點擊未選中的卡片，則選中它並進入目標選擇模式
         setSelectedCard(card);
+        setPendingSkillCard(card);
+        setIsSelectingTarget(true);
+        setSkillTargets(getValidTargets(card));
       }
     }
+  };
+
+  // 獲取技能卡牌的有效目標
+  const getValidTargets = (card) => {
+    if (!card || !card.type) return [];
+    
+    const targets = [];
+    
+    // 遍歷棋盤找到有效目標
+    for (let row = 0; row < BOARD_SIZE; row++) {
+      for (let col = 0; col < BOARD_SIZE; col++) {
+        const piece = board[row][col];
+        if (piece === 'empty') continue;
+        
+        const pieceKey = `${row}-${col}`;
+        const pieceOwner = pieceOwners[pieceKey];
+        
+        // 根據技能卡牌類型確定有效目標
+        switch (card.type) {
+          case 'basic_melee_shared':
+            // 基礎近戰共用技能：只能對己方的對應棋子使用
+            if (pieceOwner === 'human' && card.requiredPieces.includes(piece)) {
+              targets.push({ row, col, piece, owner: pieceOwner });
+            }
+            break;
+          case 'ranged_exclusive':
+            // 遠程專屬：只能對己方遠程單位使用
+            if (pieceOwner === 'human' && card.requiredPieces.includes(piece)) {
+              targets.push({ row, col, piece, owner: pieceOwner });
+            }
+            break;
+          case 'mage_exclusive':
+            // 魔法師專屬：只能對己方魔法師使用
+            if (pieceOwner === 'human' && card.requiredPieces.includes(piece)) {
+              targets.push({ row, col, piece, owner: pieceOwner });
+            }
+            break;
+          case 'assassin_exclusive':
+            // 刺客專屬：只能對己方刺客使用
+            if (pieceOwner === 'human' && card.requiredPieces.includes(piece)) {
+              targets.push({ row, col, piece, owner: pieceOwner });
+            }
+            break;
+          case 'knight_exclusive':
+            // 騎士專屬：可以對敵方棋子使用
+            if (card.id === 'CHARGE_ATTACK') {
+              if (pieceOwner !== 'human' && piece !== 'empty') {
+                targets.push({ row, col, piece, owner: pieceOwner });
+              }
+            } else {
+              // 其他騎士技能：只能對己方騎士使用
+              if (pieceOwner === 'human' && card.requiredPieces.includes(piece)) {
+                targets.push({ row, col, piece, owner: pieceOwner });
+              }
+            }
+            break;
+          case 'priest_exclusive':
+            // 牧師專屬：只能對己方棋子使用
+            if (pieceOwner === 'human' && piece !== 'empty') {
+              targets.push({ row, col, piece, owner: pieceOwner });
+            }
+            break;
+          case 'architect_exclusive':
+            // 戰爭建築師專屬：只能對己方棋子使用
+            if (pieceOwner === 'human' && piece !== 'empty') {
+              targets.push({ row, col, piece, owner: pieceOwner });
+            }
+            break;
+          case 'mind_controller_exclusive':
+            // 心靈控制者專屬：可以對敵方基礎單位使用
+            if (card.id === 'DEATH_CURSE') {
+              const pieceCategory = getPieceCategory(piece);
+              if (pieceCategory === 'basic' && pieceOwner !== 'human') {
+                targets.push({ row, col, piece, owner: pieceOwner });
+              }
+            } else {
+              // 其他心靈控制者技能：只能對己方心智扭曲者使用
+              if (pieceOwner === 'human' && card.requiredPieces.includes(piece)) {
+                targets.push({ row, col, piece, owner: pieceOwner });
+              }
+            }
+            break;
+          default:
+            // 默認：只能對己方的對應棋子使用
+            if (pieceOwner === 'human' && card.requiredPieces.includes(piece)) {
+              targets.push({ row, col, piece, owner: pieceOwner });
+            }
+        }
+      }
+    }
+    
+    return targets;
+  };
+
+  // 應用技能效果
+  const applySkillEffect = (card, targetRow, targetCol) => {
+    if (!card || !targetRow || !targetCol) return false;
+    
+    const pieceKey = `${targetRow}-${targetCol}`;
+    const targetPiece = board[targetRow][targetCol];
+    
+    switch (card.id) {
+      case 'HOLY_SHIELD':
+        // 聖盾術：抵擋下一次所受傷害
+        setPieceStates(prev => ({
+          ...prev,
+          [pieceKey]: {
+            ...prev[pieceKey],
+            buffs: [...(prev[pieceKey]?.buffs || []), { type: 'holy_shield', endTurn: currentTurn + 2 }]
+          }
+        }));
+        break;
+        
+      case 'SPIKED_ARMOR':
+        // 尖刺戰甲：下回合若被近戰攻擊，反彈同等傷害
+        setPieceStates(prev => ({
+          ...prev,
+          [pieceKey]: {
+            ...prev[pieceKey],
+            buffs: [...(prev[pieceKey]?.buffs || []), { type: 'spiked_armor', endTurn: currentTurn + 2 }]
+          }
+        }));
+        break;
+        
+          case 'BURNING_ARROW':
+            // 燃燒箭：為己方弓箭手或弩手添加燃燒箭效果，下一次攻擊會造成燃燒
+            setPieceStates(prev => ({
+              ...prev,
+              [pieceKey]: {
+                ...prev[pieceKey],
+                buffs: [...(prev[pieceKey]?.buffs || []), { type: 'burning_arrow', endTurn: currentTurn + 2 }]
+              }
+            }));
+            break;
+        
+      case 'LIGHTNING_BOLT':
+        // 落雷術：以攻擊格為中心，額外對前後格造成同等傷害
+        applyAreaDamage(targetRow, targetCol, 'lightning');
+        break;
+        
+      case 'HAIL_STORM':
+        // 冰雹術：以攻擊格為中心，額外對左右格造成同等傷害
+        applyAreaDamage(targetRow, targetCol, 'hail');
+        break;
+        
+      case 'SHADOW_CLOAK':
+        // 飛影披風：隱身一回合，不可被指定為攻擊或技能目標
+        setPieceStates(prev => ({
+          ...prev,
+          [pieceKey]: {
+            ...prev[pieceKey],
+            buffs: [...(prev[pieceKey]?.buffs || []), { type: 'shadow_cloak', endTurn: currentTurn + 2 }]
+          }
+        }));
+        break;
+        
+      case 'DEATH_CURSE':
+        // 死亡詛咒：指定一名基礎單位，該單位在下一回合結束時死亡
+        setPieceStates(prev => ({
+          ...prev,
+          [pieceKey]: {
+            ...prev[pieceKey],
+            debuffs: [...(prev[pieceKey]?.debuffs || []), { type: 'death_curse', endTurn: currentTurn + 2 }]
+          }
+        }));
+        break;
+        
+      case 'CHARGE_ATTACK':
+        // 衝鋒攻擊：騎士移動到敵方位置並造成額外傷害
+        const attackPower = getPieceAttackPower('K');
+        const currentHealth = pieceStates[pieceKey]?.health || getPieceHealth(targetPiece);
+        const newHealth = Math.max(0, currentHealth - attackPower * 1.5);
+        
+        setPieceStates(prev => ({
+          ...prev,
+          [pieceKey]: {
+            ...prev[pieceKey],
+            health: newHealth
+          }
+        }));
+        
+        // 如果血量歸零，移除棋子
+        if (newHealth <= 0) {
+          const newBoard = board.map(row => [...row]);
+          newBoard[targetRow][targetCol] = 'empty';
+          setBoard(newBoard);
+          
+          setPieceStates(prev => {
+            const newStates = { ...prev };
+            delete newStates[pieceKey];
+            return newStates;
+          });
+          
+          setPieceOwners(prev => {
+            const newOwners = { ...prev };
+            delete newOwners[pieceKey];
+            return newOwners;
+          });
+        }
+        break;
+        
+      case 'HEALING_PRAYER':
+        // 治療禱告：恢復目標棋子100點生命值
+        const maxHealth = getPieceHealth(targetPiece);
+        const currentHealthForHeal = pieceStates[pieceKey]?.health || maxHealth;
+        const healedHealth = Math.min(maxHealth, currentHealthForHeal + 100);
+        
+        setPieceStates(prev => ({
+          ...prev,
+          [pieceKey]: {
+            ...prev[pieceKey],
+            health: healedHealth
+          }
+        }));
+        break;
+        
+      case 'DEFENSIVE_WALL':
+        // 防禦牆：為己方棋子提供額外防禦力
+        setPieceStates(prev => ({
+          ...prev,
+          [pieceKey]: {
+            ...prev[pieceKey],
+            buffs: [...(prev[pieceKey]?.buffs || []), { type: 'defensive_wall', endTurn: currentTurn + 2, defense: 50 }]
+          }
+        }));
+        break;
+        
+      default:
+        console.log('未知技能卡牌:', card.id);
+        return false;
+    }
+    
+    // 消耗行動點
+    consumeActionPoints('card', card.cost);
+    
+    // 移除手牌
+    removeCard(card);
+    
+    // 清除技能使用狀態
+    setPendingSkillCard(null);
+    setIsSelectingTarget(false);
+    setSkillTargets([]);
+    setHasShownSkillError(false); // 重置錯誤提示狀態
+    
+    return true;
+  };
+
+  // 區域傷害效果
+  const applyAreaDamage = (centerRow, centerCol, type) => {
+    const directions = type === 'lightning' ? 
+      [[-1, 0], [1, 0]] : // 前後格
+      [[0, -1], [0, 1]];   // 左右格
+    
+    directions.forEach(([dRow, dCol]) => {
+      const targetRow = centerRow + dRow;
+      const targetCol = centerCol + dCol;
+      
+      if (isValidPosition(targetRow, targetCol)) {
+        const piece = board[targetRow][targetCol];
+        if (piece !== 'empty') {
+          const pieceKey = `${targetRow}-${targetCol}`;
+          const pieceOwner = pieceOwners[pieceKey];
+          
+          // 只對敵方棋子造成傷害
+          if (pieceOwner !== currentPlayer) {
+            const attackPower = getPieceAttackPower(board[centerRow][centerCol]);
+            const currentHealth = pieceStates[pieceKey]?.health || getPieceHealth(piece);
+            const newHealth = Math.max(0, currentHealth - attackPower);
+            
+            setPieceStates(prev => ({
+              ...prev,
+              [pieceKey]: {
+                ...prev[pieceKey],
+                health: newHealth
+              }
+            }));
+            
+            // 如果血量歸零，移除棋子
+            if (newHealth <= 0) {
+              const newBoard = board.map(row => [...row]);
+              newBoard[targetRow][targetCol] = 'empty';
+              setBoard(newBoard);
+              
+              setPieceStates(prev => {
+                const newStates = { ...prev };
+                delete newStates[pieceKey];
+                return newStates;
+              });
+              
+              setPieceOwners(prev => {
+                const newOwners = { ...prev };
+                delete newOwners[pieceKey];
+                return newOwners;
+              });
+            }
+          }
+        }
+      }
+    });
   };
 
   // 移除手牌函數（用於 CardSystem）
@@ -305,8 +660,140 @@ const ChessBoard3D = ({ onBack, gameMode, playerDeck: initialPlayerDeck }) => {
     // 移除手牌後不自動切換回合，等待玩家點擊結束回合按鈕
   };
 
+  // 處理技能效果持續時間
+  const processSkillEffects = (turnNumber = currentTurn) => {
+    console.log(`processSkillEffects 被調用，當前回合: ${turnNumber}`);
+    setPieceStates(prev => {
+      const newStates = { ...prev };
+      
+      // 列出場上的特殊效果
+      const activeEffects = [];
+      Object.keys(newStates).forEach(pieceKey => {
+        const pieceState = newStates[pieceKey];
+        if (pieceState && pieceState.buffs && pieceState.buffs.length > 0) {
+          pieceState.buffs.forEach(buff => {
+            const remainingTurns = Math.max(0, buff.endTurn - turnNumber);
+            activeEffects.push(`棋子 ${pieceKey}: ${buff.type} (剩餘 ${remainingTurns} 回合，結束於回合 ${buff.endTurn})`);
+          });
+        }
+        if (pieceState && pieceState.debuffs && pieceState.debuffs.length > 0) {
+          pieceState.debuffs.forEach(debuff => {
+            const remainingTurns = Math.max(0, debuff.endTurn - turnNumber);
+            activeEffects.push(`棋子 ${pieceKey}: ${debuff.type} (剩餘 ${remainingTurns} 回合，結束於回合 ${debuff.endTurn})`);
+          });
+        }
+      });
+      
+      if (activeEffects.length > 0) {
+        console.log('=== 場上特殊效果 ===');
+        activeEffects.forEach(effect => console.log(effect));
+        console.log('==================');
+      }
+      
+      Object.keys(newStates).forEach(pieceKey => {
+        const pieceState = newStates[pieceKey];
+        if (pieceState && pieceState.buffs && pieceState.buffs.length > 0) {
+          // 處理增益效果 - 基於結束回合數過濾
+          const updatedBuffs = pieceState.buffs.filter(buff => {
+            const remainingTurns = Math.max(0, buff.endTurn - turnNumber);
+            return remainingTurns > 0;
+          });
+          
+          newStates[pieceKey] = {
+            ...pieceState,
+            buffs: updatedBuffs
+          };
+        }
+        
+        if (pieceState && pieceState.debuffs) {
+          // 處理減益效果 - 基於結束回合數過濾
+          const updatedDebuffs = pieceState.debuffs.filter(debuff => {
+            const remainingTurns = Math.max(0, debuff.endTurn - turnNumber);
+            return remainingTurns > 0;
+          });
+          
+          // 處理燃燒效果
+          const burningEffects = pieceState.debuffs.filter(debuff => 
+            debuff.type === 'burning' && debuff.damage
+          );
+          
+          burningEffects.forEach(burning => {
+            // 執行燃燒傷害
+            const [row, col] = pieceKey.split('-').map(Number);
+            const piece = board[row][col];
+            if (piece !== 'empty') {
+              const currentHealth = pieceState.health || getPieceHealth(piece);
+              const newHealth = Math.max(0, currentHealth - burning.damage);
+              
+              newStates[pieceKey] = {
+                ...pieceState,
+                health: newHealth
+              };
+              
+              // 如果血量歸零，移除棋子
+              if (newHealth <= 0) {
+                const newBoard = board.map(r => [...r]);
+                newBoard[row][col] = 'empty';
+                setBoard(newBoard);
+                
+                delete newStates[pieceKey];
+                setPieceOwners(prev => {
+                  const newOwners = { ...prev };
+                  delete newOwners[pieceKey];
+                  return newOwners;
+                });
+              }
+            }
+          });
+          
+          // 處理死亡詛咒效果
+          const deathCurses = pieceState.debuffs.filter(debuff => 
+            debuff.type === 'death_curse' && debuff.duration === 1
+          );
+          
+          deathCurses.forEach(curse => {
+            // 執行死亡詛咒效果
+            const [row, col] = pieceKey.split('-').map(Number);
+            const piece = board[row][col];
+            if (piece !== 'empty') {
+              // 移除棋子
+              const newBoard = board.map(r => [...r]);
+              newBoard[row][col] = 'empty';
+              setBoard(newBoard);
+              
+              // 清除棋子狀態
+              delete newStates[pieceKey];
+              setPieceOwners(prev => {
+                const newOwners = { ...prev };
+                delete newOwners[pieceKey];
+                return newOwners;
+              });
+            }
+          });
+          
+          newStates[pieceKey] = {
+            ...pieceState,
+            debuffs: updatedDebuffs
+          };
+        }
+      });
+      
+      return newStates;
+    });
+    
+    // 強制重新渲染UI
+    setForceUpdate(prev => prev + 1);
+  };
+
   // 結束回合函數
   const handleEndTurn = () => {
+    // 玩家結束回合，增加回合數
+    const newTurn = currentTurn + 1;
+    setCurrentTurn(newTurn);
+    
+    // 立即處理技能效果，傳入新的回合數
+    processSkillEffects(newTurn);
+    
     setCurrentPlayer('ai');
     setIsAITurn(true);
   };
@@ -457,26 +944,16 @@ const ChessBoard3D = ({ onBack, gameMode, playerDeck: initialPlayerDeck }) => {
   });
 
   // 棋子狀態追蹤
-  const [pieceStates, setPieceStates] = useState(() => {
-    const states = {};
-    for (let row = 0; row < BOARD_SIZE; row++) {
-      for (let col = 0; col < BOARD_SIZE; col++) {
-        const piece = board[row][col];
-        if (piece !== 'empty') {
-          states[`${row}-${col}`] = {
-            hasBeenAttacked: false,
-            player: row <= 1 ? 'ai' : 'human', // 行0-1是AI，行5-7是玩家
-            health: getPieceHealth(piece), // 當前血量
-            maxHealth: getPieceMaxHealth(piece), // 最大血量
-          };
-        }
-      }
-    }
-    return states;
-  });
+  const [pieceStates, setPieceStates] = useState({});
+  
+
+  // 注意：棋子狀態的初始化已經在上面的 useEffect 中完成
 
   // 棋子擁有者追蹤（基於初始位置，不會改變）
-  const [pieceOwners, setPieceOwners] = useState(() => {
+  const [pieceOwners, setPieceOwners] = useState({});
+
+  // 初始化棋子擁有者
+  useEffect(() => {
     const owners = {};
     for (let row = 0; row < BOARD_SIZE; row++) {
       for (let col = 0; col < BOARD_SIZE; col++) {
@@ -487,13 +964,15 @@ const ChessBoard3D = ({ onBack, gameMode, playerDeck: initialPlayerDeck }) => {
         }
       }
     }
-    return owners;
-  });
+    setPieceOwners(owners);
+  }, [board]);
 
   const [selectedPiece, setSelectedPiece] = useState(null);
   const [selectedPosition, setSelectedPosition] = useState(null);
   const [currentPlayer, setCurrentPlayer] = useState('human');
   const [isAITurn, setIsAITurn] = useState(false);
+  const [currentTurn, setCurrentTurn] = useState(0);
+  const [forceUpdate, setForceUpdate] = useState(0);
   
   // 移除城堡狀態追蹤
   // 移除AI進度狀態，使用簡單AI
@@ -594,7 +1073,12 @@ const ChessBoard3D = ({ onBack, gameMode, playerDeck: initialPlayerDeck }) => {
       setPieceStates(prev => {
         const newStates = { ...prev };
         if (newStates[oldKey]) {
-          newStates[newKey] = { ...newStates[oldKey] };
+          // 深拷貝棋子狀態，包括buffs和debuffs數組
+          newStates[newKey] = { 
+            ...newStates[oldKey],
+            buffs: newStates[oldKey].buffs ? [...newStates[oldKey].buffs] : [],
+            debuffs: newStates[oldKey].debuffs ? [...newStates[oldKey].debuffs] : []
+          };
           delete newStates[oldKey];
         }
         return newStates;
@@ -628,7 +1112,12 @@ const ChessBoard3D = ({ onBack, gameMode, playerDeck: initialPlayerDeck }) => {
         setPieceStates(prev => {
           const newStates = { ...prev };
           if (newStates[oldKey]) {
-            newStates[newKey] = { ...newStates[oldKey] };
+            // 深拷貝棋子狀態，包括buffs和debuffs數組
+            newStates[newKey] = { 
+              ...newStates[oldKey],
+              buffs: newStates[oldKey].buffs ? [...newStates[oldKey].buffs] : [],
+              debuffs: newStates[oldKey].debuffs ? [...newStates[oldKey].debuffs] : []
+            };
             delete newStates[oldKey];
           }
           return newStates;
@@ -880,7 +1369,13 @@ const ChessBoard3D = ({ onBack, gameMode, playerDeck: initialPlayerDeck }) => {
         const aiMove = getSimpleAIMove();
         
         if (!aiMove) {
-          // AI沒有可移動的棋子
+          // AI沒有可移動的棋子，增加回合數
+          const newTurn = currentTurn + 1;
+          setCurrentTurn(newTurn);
+          
+          // 處理技能效果後結束回合，傳入新的回合數
+          processSkillEffects(newTurn);
+          
           setCurrentPlayer('human');
           setIsAITurn(false);
           return;
@@ -905,6 +1400,13 @@ const ChessBoard3D = ({ onBack, gameMode, playerDeck: initialPlayerDeck }) => {
             ]
           );
         } else {
+          // AI回合結束，增加回合數
+          const newTurn = currentTurn + 1;
+          setCurrentTurn(newTurn);
+          
+          // 處理技能效果持續時間，傳入新的回合數
+          processSkillEffects(newTurn);
+          
           setCurrentPlayer('human');
           setIsAITurn(false);
         }
@@ -939,6 +1441,23 @@ const ChessBoard3D = ({ onBack, gameMode, playerDeck: initialPlayerDeck }) => {
       return;
     }
     
+    // 如果正在選擇技能卡牌目標
+    if (isSelectingTarget && pendingSkillCard) {
+      const isValidTarget = skillTargets.some(target => target.row === row && target.col === col);
+      if (isValidTarget) {
+        // 應用技能效果
+        applySkillEffect(pendingSkillCard, row, col);
+        return;
+      } else {
+        // 無效目標，取消技能使用
+        setPendingSkillCard(null);
+        setIsSelectingTarget(false);
+        setSkillTargets([]);
+        setSelectedCard(null);
+        return;
+      }
+    }
+    
     const piece = board[row][col];
     
     if (selectedPiece && selectedPosition) {
@@ -963,7 +1482,12 @@ const ChessBoard3D = ({ onBack, gameMode, playerDeck: initialPlayerDeck }) => {
           setPieceStates(prev => {
             const newStates = { ...prev };
             if (newStates[oldKey]) {
-              newStates[newKey] = { ...newStates[oldKey] };
+              // 深拷貝棋子狀態，包括buffs和debuffs數組
+              newStates[newKey] = { 
+                ...newStates[oldKey],
+                buffs: newStates[oldKey].buffs ? [...newStates[oldKey].buffs] : [],
+                debuffs: newStates[oldKey].debuffs ? [...newStates[oldKey].debuffs] : []
+              };
               delete newStates[oldKey];
             }
             return newStates;
@@ -982,6 +1506,7 @@ const ChessBoard3D = ({ onBack, gameMode, playerDeck: initialPlayerDeck }) => {
           // 消耗行動點
           consumeActionPoints('move');
           
+          
           // 移動成功，不自動切換回合，等待玩家點擊結束回合按鈕
         } else if (isValidAttackAction && isEnemyPiece(row, col)) {
           // 檢查是否有足夠的行動點
@@ -994,10 +1519,54 @@ const ChessBoard3D = ({ onBack, gameMode, playerDeck: initialPlayerDeck }) => {
           
           if (combatResult === 'enemy_damaged') {
             // 攻擊方留在原地，只扣血，不移動
+            
+            // 檢查攻擊者是否有燃燒箭效果
+            const attackerKey = `${selectedPosition.row}-${selectedPosition.col}`;
+            const attackerState = pieceStates[attackerKey];
+            const hasBurningArrow = attackerState?.buffs?.some(buff => buff.type === 'burning_arrow');
+            
+            if (hasBurningArrow) {
+              // 對被攻擊的目標施加燃燒效果
+              const targetKey = `${row}-${col}`;
+              setPieceStates(prev => ({
+                ...prev,
+                [targetKey]: {
+                  ...prev[targetKey],
+                  debuffs: [...(prev[targetKey]?.debuffs || []), { type: 'burning', endTurn: currentTurn + 2, damage: 50 }]
+                }
+              }));
+              
+              // 移除攻擊者的燃燒箭效果
+              setPieceStates(prev => ({
+                ...prev,
+                [attackerKey]: {
+                  ...prev[attackerKey],
+                  buffs: prev[attackerKey]?.buffs?.filter(buff => buff.type !== 'burning_arrow') || []
+                }
+              }));
+            }
+            
             // 消耗行動點
             consumeActionPoints('attack');
           } else if (combatResult === 'enemy_defeated') {
             // 敵人血量歸零，從棋盤上移除
+            
+            // 檢查攻擊者是否有燃燒箭效果（即使敵人被擊敗也要處理）
+            const attackerKey = `${selectedPosition.row}-${selectedPosition.col}`;
+            const attackerState = pieceStates[attackerKey];
+            const hasBurningArrow = attackerState?.buffs?.some(buff => buff.type === 'burning_arrow');
+            
+            if (hasBurningArrow) {
+              // 移除攻擊者的燃燒箭效果
+              setPieceStates(prev => ({
+                ...prev,
+                [attackerKey]: {
+                  ...prev[attackerKey],
+                  buffs: prev[attackerKey]?.buffs?.filter(buff => buff.type !== 'burning_arrow') || []
+                }
+              }));
+            }
+            
             const newBoard = board.map(row => [...row]);
             newBoard[row][col] = 'empty'; // 敵人被移除，位置變空
             setBoard(newBoard);
@@ -1059,23 +1628,24 @@ const ChessBoard3D = ({ onBack, gameMode, playerDeck: initialPlayerDeck }) => {
       // 已選擇棋子
     } else if (piece !== 'empty' && isEnemyPiece(row, col)) {
       // 不能選擇敵方棋子
+    } else if (piece === 'empty') {
+      // 點擊空格子，可以選擇位置（用於調試）
+      setSelectedPiece(null);
+      setSelectedPosition({ row, col });
+      console.log(`點擊空格子 [${row}, ${col}]`);
     }
   };
 
-  // 簡化的棋子組件
-  const Piece3D = ({ piece, row, col, isSelected, isHighlighted }) => {
-    // 修正Z軸層級 - 前面的棋子（row值大）應該有更高的zIndex
-    // row 7 (最前面) = zIndex 10017, row 6 = zIndex 10016, ..., row 0 (最後面) = zIndex 10010
-    const baseZIndex = 10017 - (7 - row); // 前面的行有更高的zIndex
-    const zIndex = isSelected ? baseZIndex + 20 : baseZIndex;
-    
+  // 棋子組件
+  const Piece3D = ({ piece, row, col, isSelected, isHighlighted, currentTurn }) => {
     if (piece === 'empty') {
       return (
         <TouchableOpacity
           style={[
             styles.cell,
             {
-              backgroundColor: isHighlighted ? '#85C1E9' : (row + col) % 2 === 0 ? '#F5DEB3' : '#8B4513',
+              backgroundColor: isHighlighted ? '#85C1E9' : 
+                (row + col) % 2 === 0 ? '#F5DEB3' : '#8B4513',
               width: CELL_SIZE,
               height: CELL_SIZE,
             },
@@ -1085,110 +1655,41 @@ const ChessBoard3D = ({ onBack, gameMode, playerDeck: initialPlayerDeck }) => {
       );
     }
 
-    const pieceData = PIECE_TYPES[piece];
+    // 檢查是否為技能目標
+    const isSkillTarget = isSelectingTarget && pendingSkillCard && skillTargets.some(target => target.row === row && target.col === col);
 
     return (
       <TouchableOpacity
         style={[
           styles.cell,
           {
-            backgroundColor: isHighlighted 
-              ? '#E74C3C' 
-              : (row + col) % 2 === 0 ? '#F5DEB3' : '#8B4513',
+            backgroundColor: isSkillTarget ? '#FFD700' : // 技能目標用黃色背景
+              isHighlighted ? '#E74C3C' : // 普通高亮用紅色背景
+              (row + col) % 2 === 0 ? '#F5DEB3' : '#8B4513',
             width: CELL_SIZE,
             height: CELL_SIZE,
-            zIndex: zIndex,
           },
         ]}
         onPress={() => handleCellPress(row, col)}
         activeOpacity={0.8}
       >
         <View style={styles.pieceContainer}>
-          {/* 使用統一的棋子管理器 */}
           <PieceManager 
             piece={piece}
             isSelected={isSelected}
-            isHighlighted={isHighlighted}
+            isHighlighted={isHighlighted && !isSkillTarget} // 技能目標時不使用普通高亮
+            isSkillTarget={isSkillTarget}
             currentHealth={pieceStates[`${row}-${col}`]?.health}
             maxHealth={pieceStates[`${row}-${col}`]?.maxHealth}
             isPlayerPiece={getPiecePlayer(row, col) === 'human'}
+            skillEffects={pieceStates[`${row}-${col}`]} // 傳入技能效果狀態
+            currentTurn={currentTurn}
           />
         </View>
       </TouchableOpacity>
     );
   };
 
-  // 重製遊戲函數
-  const resetGame = () => {
-    const initialBoard = Array(BOARD_SIZE).fill(null).map(() => 
-      Array(BOARD_SIZE).fill('empty')
-    );
-    
-    // 重新設置初始棋子位置 - 玩家方（第6行）
-    // 前排棋子 (基礎型)：放置在 [6,0]~[6,1]
-    initialBoard[6][0] = 'S'; // 玩家士兵
-    initialBoard[6][1] = 'SM'; // 玩家太刀武士
-    
-    // 中後排棋子 (特殊型 + 英雄型)：放置在 [6,2]~[6,5]
-    initialBoard[6][2] = 'A'; // 玩家弓箭手
-    initialBoard[6][3] = 'M'; // 玩家法師
-    initialBoard[6][4] = 'P'; // 玩家牧師
-    initialBoard[6][5] = 'MT'; // 玩家心智扭曲者
-    
-    // 重新設置初始棋子位置 - AI方（弓箭手、螃蟹、心智扭曲者）
-    initialBoard[1][3] = 'A'; // AI弓箭手
-    initialBoard[1][4] = 'CC'; // AI螃蟹
-    initialBoard[0][3] = 'MT'; // AI心智扭曲者
-    
-    
-    setBoard(initialBoard);
-    
-    // 重製棋子狀態
-    const states = {};
-    const owners = {};
-    for (let row = 0; row < BOARD_SIZE; row++) {
-      for (let col = 0; col < BOARD_SIZE; col++) {
-        const piece = initialBoard[row][col];
-        if (piece !== 'empty') {
-          states[`${row}-${col}`] = {
-            hasBeenAttacked: false,
-            player: row <= 1 ? 'ai' : 'human', // AI只有第0-1行
-            health: getPieceHealth(piece),
-            maxHealth: getPieceMaxHealth(piece)
-          };
-          owners[`${row}-${col}`] = row <= 1 ? 'ai' : 'human';
-        }
-      }
-    }
-    
-    setPieceStates(states);
-    setPieceOwners(owners);
-    setSelectedPiece(null);
-    setSelectedPosition(null);
-    setCurrentPlayer('human');
-    setIsAITurn(false);
-    
-    // 重製卡牌系統
-    const allCards = Object.values(CARD_TYPES);
-    const shuffledCards = [...allCards].sort(() => Math.random() - 0.5);
-    
-    // 由於只有5張卡片，我們需要重複使用
-    const repeatedCards = [];
-    for (let i = 0; i < 8; i++) {
-      repeatedCards.push(...shuffledCards);
-    }
-    
-    setPlayerCardDeck(repeatedCards.slice(0, 15));
-    setEnemyCardDeck(repeatedCards.slice(15, 30));
-    setPlayerHand(repeatedCards.slice(30, 35));
-    setEnemyHand(repeatedCards.slice(35, 40));
-    setSelectedCard(null);
-    setActionPoints({ current: 11, max: 11 });
-    
-    // 重製AI出牌動畫狀態
-    setAiPlayedCard(null);
-    setShowAiPlayedCard(false);
-  };
 
   // 載入畫面
   if (isLoading) {
@@ -1228,24 +1729,26 @@ const ChessBoard3D = ({ onBack, gameMode, playerDeck: initialPlayerDeck }) => {
           <Text style={styles.aiThinking}>AI思考中...</Text>
         )}
         
+        {/* 當前回合數顯示 */}
+        <View style={styles.turnDisplay}>
+          <Text style={styles.turnLabel}>回合</Text>
+          <Text style={styles.turnNumber}>{currentTurn}</Text>
+        </View>
       </View>
 
-      {/* 增強透視效果的棋盤容器 */}
-      <View style={styles.board3DContainer}>
-        {/* 棋盤底座 */}
-        <LinearGradient
-          colors={['#8B4513', '#654321', '#2F1B14']}
-          style={styles.boardBase}
-          start={{ x: 0, y: 0 }}
-          end={{ x: 1, y: 1 }}
-        >
-          {/* 木質紋理 */}
-          <View style={styles.woodTexture} />
-          
-          {/* 透視光源效果 */}
-          <View style={styles.perspectiveLight} />
-
-          {/* 主棋盤 */}
+      {/* 簡化的棋盤容器 */}
+      <View style={styles.boardContainer}>
+        {/* 左方行座標 */}
+        <View style={styles.rowCoordinates}>
+          {board.map((_, rowIndex) => (
+            <Text key={rowIndex} style={styles.coordinateText}>
+              {rowIndex}
+            </Text>
+          ))}
+        </View>
+        
+        {/* 棋盤主體 */}
+        <View style={styles.boardWithCoordinates}>
           <View style={styles.board}>
             {board.map((row, rowIndex) => (
               <View key={rowIndex} style={styles.row}>
@@ -1256,38 +1759,47 @@ const ChessBoard3D = ({ onBack, gameMode, playerDeck: initialPlayerDeck }) => {
                     row={rowIndex}
                     col={colIndex}
                     isSelected={selectedPosition && selectedPosition.row === rowIndex && selectedPosition.col === colIndex}
-                     isHighlighted={selectedPosition && (() => {
-                       const isValidMoveAction = isValidMove(selectedPiece, selectedPosition.row, selectedPosition.col, rowIndex, colIndex, board, pieceOwners, currentPlayer);
-                       const isValidAttackAction = isValidAttack(selectedPiece, selectedPosition.row, selectedPosition.col, rowIndex, colIndex, board, pieceOwners, currentPlayer);
-                       const isEnemy = getPiecePlayer(rowIndex, colIndex) !== currentPlayer;
-                       
-                       // 如果這個位置有友方棋子，不顯示任何提示
-                       if (board[rowIndex][colIndex] !== 'empty' && !isEnemy) {
-                         return false;
-                       }
-                       
-                       const result = isValidMoveAction || (isValidAttackAction && isEnemy);
-                       
-                       
-                       return result;
-                     })()}
+                    currentTurn={currentTurn}
+                    isHighlighted={(() => {
+                      // 如果正在選擇技能卡牌目標
+                      if (isSelectingTarget && pendingSkillCard) {
+                        return skillTargets.some(target => target.row === rowIndex && target.col === colIndex);
+                      }
+                      
+                      // 如果選中的是空格子，不顯示高亮
+                      if (!selectedPiece || !selectedPosition) {
+                        return false;
+                      }
+                      
+                      const isValidMoveAction = isValidMove(selectedPiece, selectedPosition.row, selectedPosition.col, rowIndex, colIndex, board, pieceOwners, currentPlayer);
+                      const isValidAttackAction = isValidAttack(selectedPiece, selectedPosition.row, selectedPosition.col, rowIndex, colIndex, board, pieceOwners, currentPlayer);
+                      const isEnemy = getPiecePlayer(rowIndex, colIndex) !== currentPlayer;
+                      
+                      // 如果這個位置有友方棋子，不顯示任何提示
+                      if (board[rowIndex][colIndex] !== 'empty' && !isEnemy) {
+                        return false;
+                      }
+                      
+                      const result = isValidMoveAction || (isValidAttackAction && isEnemy);
+                      return result;
+                    })()}
                   />
                 ))}
               </View>
             ))}
           </View>
-
-        </LinearGradient>
+          
+          {/* 下方列座標 */}
+          <View style={styles.columnCoordinates}>
+            {board[0].map((_, colIndex) => (
+              <Text key={colIndex} style={styles.coordinateText}>
+                {colIndex}
+              </Text>
+            ))}
+          </View>
+        </View>
       </View>
       
-      {/* 重製遊戲按鈕 - 右上角 */}
-      <TouchableOpacity 
-        style={styles.resetButtonTopRight} 
-        onPress={resetGame}
-        activeOpacity={0.8}
-      >
-        <Text style={styles.resetButtonText}>🔄 重製遊戲</Text>
-      </TouchableOpacity>
 
 
       {/* 卡牌系統 */}
@@ -1398,6 +1910,30 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     marginBottom: 20,
     zIndex: 10,
+    position: 'relative',
+  },
+  turnDisplay: {
+    position: 'absolute',
+    top: 0,
+    right: 0,
+    backgroundColor: '#2C3E50',
+    paddingHorizontal: 8,
+    paddingVertical: 4,
+    borderRadius: 12,
+    borderWidth: 1,
+    borderColor: '#FFD700',
+  },
+  turnLabel: {
+    color: '#FFD700',
+    fontSize: 10,
+    fontWeight: 'bold',
+    textAlign: 'center',
+  },
+  turnNumber: {
+    color: '#FFFFFF',
+    fontSize: 16,
+    fontWeight: 'bold',
+    textAlign: 'center',
   },
   currentPlayer: {
     fontSize: 18,
@@ -1410,82 +1946,43 @@ const styles = StyleSheet.create({
     fontStyle: 'italic',
     marginTop: 5,
   },
-  board3DContainer: {
-    position: 'absolute',
-    top: '50%',
-    left: '50%',
-    transform: [
-      { translateX: -(CELL_SIZE * BOARD_SIZE + 30) / 2 }, 
-      { translateY: -(CELL_SIZE * BOARD_SIZE + 30) / 2 },
-    ],
+  boardContainer: {
+    flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'center',
-    zIndex: 9999,
-    width: CELL_SIZE * BOARD_SIZE + 30,
-    height: CELL_SIZE * BOARD_SIZE + 30,
+    flex: 1,
+    paddingBottom: 100,
   },
-  lightSource: {
-    position: 'absolute',
-    width: 100,
-    height: 100,
-    borderRadius: 50,
-    backgroundColor: 'rgba(255, 255, 255, 0.1)',
-    top: -50,
-    left: -50,
-    zIndex: 1,
+  rowCoordinates: {
+    flexDirection: 'column',
+    justifyContent: 'center',
+    alignItems: 'center',
+    marginRight: 5,
+    height: CELL_SIZE * BOARD_SIZE,
   },
-  perspectiveLight: {
-    position: 'absolute',
-    width: 200,
-    height: 200,
-    borderRadius: 100,
-    backgroundColor: 'rgba(255, 255, 255, 0.05)',
-    top: -100,
-    left: -100,
-    zIndex: 2,
-    shadowColor: 'rgba(255, 255, 255, 0.3)',
-    shadowOffset: { width: 0, height: 0 },
-    shadowOpacity: 0.5,
-    shadowRadius: 50,
-    elevation: 5,
+  boardWithCoordinates: {
+    flexDirection: 'column',
+    alignItems: 'center',
   },
-  boardBase: {
-    padding: 15,
-    borderRadius: 15,
-    shadowColor: '#000',
-    shadowOffset: {
-      width: 0,
-      height: 8,
-    },
-    shadowOpacity: 0.5,
-    shadowRadius: 15,
-    elevation: 12,
-    width: '100%',
-    height: '100%',
+  columnCoordinates: {
+    flexDirection: 'row',
+    justifyContent: 'center',
+    alignItems: 'center',
+    marginTop: 5,
+    width: CELL_SIZE * BOARD_SIZE,
   },
-  woodTexture: {
-    position: 'absolute',
-    top: 0,
-    left: 0,
-    right: 0,
-    bottom: 0,
-    borderRadius: 20,
-    backgroundColor: 'rgba(139, 69, 19, 0.3)',
-    // 這裡可以添加更多木質紋理效果
+  coordinateText: {
+    color: '#FFD700',
+    fontSize: 12,
+    fontWeight: 'bold',
+    textAlign: 'center',
+    width: CELL_SIZE,
+    height: CELL_SIZE,
+    lineHeight: CELL_SIZE,
   },
   board: {
     borderWidth: 2,
-    borderColor: '#2F1B14',
-    borderRadius: 6,
-    overflow: 'visible', // 允許棋子超出棋盤邊界
-    shadowColor: '#000',
-    shadowOffset: {
-      width: 0,
-      height: 8,
-    },
-    shadowOpacity: 0.4,
-    shadowRadius: 12,
-    elevation: 8,
+    borderColor: '#000',
     width: CELL_SIZE * BOARD_SIZE,
     height: CELL_SIZE * BOARD_SIZE,
   },
@@ -1496,51 +1993,21 @@ const styles = StyleSheet.create({
   cell: {
     justifyContent: 'center',
     alignItems: 'center',
-    position: 'relative',
+    borderWidth: 1,
+    borderColor: '#000',
     width: CELL_SIZE,
     height: CELL_SIZE,
-    overflow: 'visible', // 允許棋子超出格子邊界
+  },
+  cellText: {
+    fontSize: 16,
+    fontWeight: 'bold',
+    color: '#000',
   },
   pieceContainer: {
     position: 'relative',
     width: CELL_SIZE * 0.95,
     height: CELL_SIZE * 0.95,
-    overflow: 'visible', // 允許棋子內容超出容器邊界
-  },
-  emptyPiece: {
-    width: '100%',
-    height: '100%',
-    justifyContent: 'center',
-    alignItems: 'center',
-  },
-  emptyPieceText: {
-    color: '#FFFFFF',
-    fontSize: CELL_SIZE * 0.3,
-    fontWeight: 'bold',
-  },
-  resetButtonTopRight: {
-    position: 'absolute',
-    top: 50,
-    right: 20,
-    zIndex: 10,
-    backgroundColor: '#E74C3C',
-    paddingHorizontal: 15,
-    paddingVertical: 10,
-    borderRadius: 20,
-    shadowColor: '#000',
-    shadowOffset: {
-      width: 0,
-      height: 4,
-    },
-    shadowOpacity: 0.3,
-    shadowRadius: 8,
-    elevation: 8,
-  },
-  resetButtonText: {
-    color: '#FFFFFF',
-    fontSize: 14,
-    fontWeight: 'bold',
-    textAlign: 'center',
+    overflow: 'visible',
   },
   // 移除城堡容器樣式
 });

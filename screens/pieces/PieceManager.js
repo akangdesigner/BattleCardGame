@@ -120,7 +120,7 @@ const HealthBar = ({ piece, currentHealth, maxHealth, isPlayerPiece }) => {
 };
 
 // 統一的棋子管理器
-const PieceManager = ({ piece, isSelected, isHighlighted, currentHealth, maxHealth, isPlayerPiece }) => {
+const PieceManager = ({ piece, isSelected, isHighlighted, isSkillTarget, currentHealth, maxHealth, isPlayerPiece, skillEffects, currentTurn = 0 }) => {
   // 如果沒有傳入血量，使用默認值
   const pieceHealth = currentHealth !== undefined ? currentHealth : getPieceHealth(piece);
   const pieceMaxHealth = maxHealth !== undefined ? maxHealth : getPieceMaxHealth(piece);
@@ -129,31 +129,31 @@ const PieceManager = ({ piece, isSelected, isHighlighted, currentHealth, maxHeal
   const pieceComponent = (() => {
     switch (piece) {
       case 'S': // 士兵
-        return <SoldierPiece isSelected={isSelected} isHighlighted={isHighlighted} />;
+        return <SoldierPiece isSelected={isSelected} isHighlighted={isHighlighted} isSkillTarget={isSkillTarget} />;
       case 'A': // 弓箭手
-        return <ArcherPiece isSelected={isSelected} isHighlighted={isHighlighted} />;
+        return <ArcherPiece isSelected={isSelected} isHighlighted={isHighlighted} isSkillTarget={isSkillTarget} />;
       case 'M': // 法師
-        return <MagePiece isSelected={isSelected} isHighlighted={isHighlighted} />;
+        return <MagePiece isSelected={isSelected} isHighlighted={isHighlighted} isSkillTarget={isSkillTarget} />;
       case 'K': // 騎士
-        return <KnightPiece isSelected={isSelected} isHighlighted={isHighlighted} />;
+        return <KnightPiece isSelected={isSelected} isHighlighted={isHighlighted} isSkillTarget={isSkillTarget} />;
       case 'P': // 牧師
-        return <PriestPiece isSelected={isSelected} isHighlighted={isHighlighted} />;
+        return <PriestPiece isSelected={isSelected} isHighlighted={isHighlighted} isSkillTarget={isSkillTarget} />;
       case 'AS': // 刺客
-        return <AssassinPiece isSelected={isSelected} isHighlighted={isHighlighted} />;
+        return <AssassinPiece isSelected={isSelected} isHighlighted={isHighlighted} isSkillTarget={isSkillTarget} />;
       case 'MT': // 心智扭曲者
-        return <MindTwisterPiece isSelected={isSelected} isHighlighted={isHighlighted} />;
+        return <MindTwisterPiece isSelected={isSelected} isHighlighted={isHighlighted} isSkillTarget={isSkillTarget} />;
       case 'CB': // 弩手
-        return <CrossbowmanPiece isSelected={isSelected} isHighlighted={isHighlighted} />;
+        return <CrossbowmanPiece isSelected={isSelected} isHighlighted={isHighlighted} isSkillTarget={isSkillTarget} />;
       case 'SM': // 太刀武士
-        return <SamuraiPiece isSelected={isSelected} isHighlighted={isHighlighted} />;
+        return <SamuraiPiece isSelected={isSelected} isHighlighted={isHighlighted} isSkillTarget={isSkillTarget} />;
       case 'WA': // 戰爭建築師
-        return <WarArchitectPiece isSelected={isSelected} isHighlighted={isHighlighted} />;
+        return <WarArchitectPiece isSelected={isSelected} isHighlighted={isHighlighted} isSkillTarget={isSkillTarget} />;
       case 'SD': // 睏睏狗
-        return <SleepyDogPiece isSelected={isSelected} isHighlighted={isHighlighted} />;
+        return <SleepyDogPiece isSelected={isSelected} isHighlighted={isHighlighted} isSkillTarget={isSkillTarget} />;
       case 'CC': // 食人螃蟹
-        return <CarnivorousCrabPiece isSelected={isSelected} isHighlighted={isHighlighted} />;
+        return <CarnivorousCrabPiece isSelected={isSelected} isHighlighted={isHighlighted} isSkillTarget={isSkillTarget} />;
       case 'CASTLE': // 中古城堡
-        return <CastlePiece isSelected={isSelected} isHighlighted={isHighlighted} />;
+        return <CastlePiece isSelected={isSelected} isHighlighted={isHighlighted} isSkillTarget={isSkillTarget} />;
       default:
         return <EmptyPiece />;
     }
@@ -168,6 +168,8 @@ const PieceManager = ({ piece, isSelected, isHighlighted, currentHealth, maxHeal
         maxHealth={pieceMaxHealth} 
         isPlayerPiece={isPlayerPiece}
       />
+      {/* 技能效果顯示 */}
+      <SkillEffectsDisplay piece={piece} skillEffects={skillEffects} currentTurn={currentTurn} />
     </View>
   );
 };
@@ -176,7 +178,7 @@ const PieceManager = ({ piece, isSelected, isHighlighted, currentHealth, maxHeal
 
 
 // 法師棋子
-const MagePiece = ({ isSelected, isHighlighted }) => {
+const MagePiece = ({ isSelected, isHighlighted, isSkillTarget }) => {
   return (
     <View style={styles.container}>
       {/* 法師圖片 */}
@@ -186,6 +188,7 @@ const MagePiece = ({ isSelected, isHighlighted }) => {
           styles.pureImage,
           isSelected && styles.selectedImage,
           isHighlighted && styles.highlightedImage,
+          isSkillTarget && styles.skillTargetImage,
         ]}
         resizeMode="contain"
       />
@@ -194,7 +197,7 @@ const MagePiece = ({ isSelected, isHighlighted }) => {
 };
 
 // 騎士棋子
-const KnightPiece = ({ isSelected, isHighlighted }) => {
+const KnightPiece = ({ isSelected, isHighlighted, isSkillTarget }) => {
   return (
     <View style={styles.container}>
       {/* 騎士圖片 */}
@@ -204,6 +207,7 @@ const KnightPiece = ({ isSelected, isHighlighted }) => {
           styles.pureImage,
           isSelected && styles.selectedImage,
           isHighlighted && styles.highlightedImage,
+          isSkillTarget && styles.skillTargetImage,
         ]}
         resizeMode="contain"
       />
@@ -214,6 +218,90 @@ const KnightPiece = ({ isSelected, isHighlighted }) => {
 // 空白棋子
 const EmptyPiece = () => {
   return <View style={styles.container} />;
+};
+
+// 技能效果顯示組件
+const SkillEffectsDisplay = ({ piece, skillEffects, currentTurn = 0 }) => {
+  if (!skillEffects || 
+      (skillEffects.buffs && skillEffects.buffs.length === 0) && 
+      (skillEffects.debuffs && skillEffects.debuffs.length === 0)) {
+    return null;
+  }
+
+  return (
+    <View style={styles.skillEffectsContainer}>
+      {/* 顯示增益效果 */}
+      {skillEffects.buffs && skillEffects.buffs.map((buff, index) => {
+        const remainingTurns = Math.max(0, buff.endTurn - currentTurn);
+        // 如果剩餘回合數為0，不顯示這個效果
+        if (remainingTurns <= 0) return null;
+        return (
+          <View key={`buff-${index}`} style={styles.skillEffect}>
+            {buff.type === 'holy_shield' && (
+              <View style={styles.holyShieldEffect}>
+                <Text style={styles.shieldIcon}>🛡️</Text>
+                <View style={styles.shieldGlow} />
+                <Text style={styles.durationText}>{remainingTurns}</Text>
+              </View>
+            )}
+            {buff.type === 'spiked_armor' && (
+              <View style={styles.spikedArmorEffect}>
+                <Text style={styles.armorIcon}>⚔️</Text>
+                <View style={styles.armorGlow} />
+                <Text style={styles.durationText}>{remainingTurns}</Text>
+              </View>
+            )}
+            {buff.type === 'shadow_cloak' && (
+              <View style={styles.shadowCloakEffect}>
+                <Text style={styles.shadowIcon}>👤</Text>
+                <View style={styles.shadowGlow} />
+                <Text style={styles.durationText}>{remainingTurns}</Text>
+              </View>
+            )}
+            {buff.type === 'defensive_wall' && (
+              <View style={styles.defensiveWallEffect}>
+                <Text style={styles.wallIcon}>🏰</Text>
+                <View style={styles.wallGlow} />
+                <Text style={styles.durationText}>{remainingTurns}</Text>
+              </View>
+            )}
+          {buff.type === 'burning_arrow' && (
+            <View style={styles.burningArrowEffect}>
+              <Text style={styles.burningArrowIcon}>🔥</Text>
+              <View style={styles.burningArrowGlow} />
+              <Text style={styles.durationText}>{remainingTurns}</Text>
+            </View>
+          )}
+        </View>
+      );
+      })}
+      
+      {/* 顯示減益效果 */}
+      {skillEffects.debuffs && skillEffects.debuffs.map((debuff, index) => {
+        const remainingTurns = Math.max(0, debuff.endTurn - currentTurn);
+        // 如果剩餘回合數為0，不顯示這個效果
+        if (remainingTurns <= 0) return null;
+        return (
+          <View key={`debuff-${index}`} style={styles.skillEffect}>
+            {debuff.type === 'burning' && (
+              <View style={styles.burningEffect}>
+                <Text style={styles.burningIcon}>🔥</Text>
+                <View style={styles.burningGlow} />
+                <Text style={styles.durationText}>{remainingTurns}</Text>
+              </View>
+            )}
+            {debuff.type === 'death_curse' && (
+              <View style={styles.deathCurseEffect}>
+                <Text style={styles.deathIcon}>💀</Text>
+                <View style={styles.deathGlow} />
+                <Text style={styles.durationText}>{remainingTurns}</Text>
+              </View>
+            )}
+          </View>
+        );
+      })}
+    </View>
+  );
 };
 
 const styles = StyleSheet.create({
@@ -388,6 +476,231 @@ const styles = StyleSheet.create({
   },
   highlightedImage: {
     // 移除攻擊時的紅色外框
+  },
+  skillTargetImage: {
+    transform: [{ scale: 1.1 }],
+    shadowColor: '#FFD700', // 黃色光暈
+    shadowOffset: { width: 0, height: 0 },
+    shadowOpacity: 1.0,
+    shadowRadius: 15,
+    borderWidth: 4,
+    borderColor: '#FFD700', // 黃色邊框
+    borderRadius: 35,
+  },
+  // 技能效果樣式
+  skillEffectsContainer: {
+    position: 'absolute',
+    top: 0,
+    left: 0,
+    right: 0,
+    bottom: 0,
+    justifyContent: 'center',
+    alignItems: 'center',
+    pointerEvents: 'none',
+  },
+  skillEffect: {
+    position: 'absolute',
+    justifyContent: 'center',
+    alignItems: 'center',
+  },
+  // 聖盾術效果
+  holyShieldEffect: {
+    position: 'relative',
+    justifyContent: 'center',
+    alignItems: 'center',
+  },
+  shieldIcon: {
+    fontSize: 30,
+    zIndex: 10,
+    textShadowColor: '#FFD700',
+    textShadowOffset: { width: 0, height: 0 },
+    textShadowRadius: 10,
+  },
+  shieldGlow: {
+    position: 'absolute',
+    width: 80,
+    height: 80,
+    borderRadius: 40,
+    backgroundColor: 'rgba(255, 215, 0, 0.3)',
+    borderWidth: 2,
+    borderColor: '#FFD700',
+    shadowColor: '#FFD700',
+    shadowOffset: { width: 0, height: 0 },
+    shadowOpacity: 0.8,
+    shadowRadius: 15,
+  },
+  // 尖刺戰甲效果
+  spikedArmorEffect: {
+    position: 'relative',
+    justifyContent: 'center',
+    alignItems: 'center',
+  },
+  armorIcon: {
+    fontSize: 30,
+    zIndex: 10,
+    textShadowColor: '#8B4513',
+    textShadowOffset: { width: 0, height: 0 },
+    textShadowRadius: 10,
+  },
+  armorGlow: {
+    position: 'absolute',
+    width: 80,
+    height: 80,
+    borderRadius: 40,
+    backgroundColor: 'rgba(139, 69, 19, 0.3)',
+    borderWidth: 2,
+    borderColor: '#8B4513',
+    shadowColor: '#8B4513',
+    shadowOffset: { width: 0, height: 0 },
+    shadowOpacity: 0.8,
+    shadowRadius: 15,
+  },
+  // 暗影披風效果
+  shadowCloakEffect: {
+    position: 'relative',
+    justifyContent: 'center',
+    alignItems: 'center',
+  },
+  shadowIcon: {
+    fontSize: 30,
+    zIndex: 10,
+    textShadowColor: '#2C2C2C',
+    textShadowOffset: { width: 0, height: 0 },
+    textShadowRadius: 10,
+  },
+  shadowGlow: {
+    position: 'absolute',
+    width: 80,
+    height: 80,
+    borderRadius: 40,
+    backgroundColor: 'rgba(44, 44, 44, 0.3)',
+    borderWidth: 2,
+    borderColor: '#2C2C2C',
+    shadowColor: '#2C2C2C',
+    shadowOffset: { width: 0, height: 0 },
+    shadowOpacity: 0.8,
+    shadowRadius: 15,
+  },
+  // 防禦牆效果
+  defensiveWallEffect: {
+    position: 'relative',
+    justifyContent: 'center',
+    alignItems: 'center',
+  },
+  wallIcon: {
+    fontSize: 30,
+    zIndex: 10,
+    textShadowColor: '#8B4513',
+    textShadowOffset: { width: 0, height: 0 },
+    textShadowRadius: 10,
+  },
+  wallGlow: {
+    position: 'absolute',
+    width: 80,
+    height: 80,
+    borderRadius: 40,
+    backgroundColor: 'rgba(139, 69, 19, 0.3)',
+    borderWidth: 2,
+    borderColor: '#8B4513',
+    shadowColor: '#8B4513',
+    shadowOffset: { width: 0, height: 0 },
+    shadowOpacity: 0.8,
+    shadowRadius: 15,
+  },
+  // 燃燒箭效果
+  burningArrowEffect: {
+    position: 'relative',
+    justifyContent: 'center',
+    alignItems: 'center',
+  },
+  burningArrowIcon: {
+    fontSize: 30,
+    zIndex: 10,
+    textShadowColor: '#FF4500',
+    textShadowOffset: { width: 0, height: 0 },
+    textShadowRadius: 10,
+  },
+  burningArrowGlow: {
+    position: 'absolute',
+    width: 80,
+    height: 80,
+    borderRadius: 40,
+    backgroundColor: 'rgba(255, 69, 0, 0.3)',
+    borderWidth: 2,
+    borderColor: '#FF4500',
+    shadowColor: '#FF4500',
+    shadowOffset: { width: 0, height: 0 },
+    shadowOpacity: 0.8,
+    shadowRadius: 15,
+  },
+  // 燃燒效果（減益）
+  burningEffect: {
+    position: 'relative',
+    justifyContent: 'center',
+    alignItems: 'center',
+  },
+  burningIcon: {
+    fontSize: 30,
+    zIndex: 10,
+    textShadowColor: '#FF4500',
+    textShadowOffset: { width: 0, height: 0 },
+    textShadowRadius: 10,
+  },
+  burningGlow: {
+    position: 'absolute',
+    width: 80,
+    height: 80,
+    borderRadius: 40,
+    backgroundColor: 'rgba(255, 69, 0, 0.3)',
+    borderWidth: 2,
+    borderColor: '#FF4500',
+    shadowColor: '#FF4500',
+    shadowOffset: { width: 0, height: 0 },
+    shadowOpacity: 0.8,
+    shadowRadius: 15,
+  },
+  // 死亡詛咒效果
+  deathCurseEffect: {
+    position: 'relative',
+    justifyContent: 'center',
+    alignItems: 'center',
+  },
+  deathIcon: {
+    fontSize: 30,
+    zIndex: 10,
+    textShadowColor: '#8A2BE2',
+    textShadowOffset: { width: 0, height: 0 },
+    textShadowRadius: 10,
+  },
+  deathGlow: {
+    position: 'absolute',
+    width: 80,
+    height: 80,
+    borderRadius: 40,
+    backgroundColor: 'rgba(138, 43, 226, 0.3)',
+    borderWidth: 2,
+    borderColor: '#8A2BE2',
+    shadowColor: '#8A2BE2',
+    shadowOffset: { width: 0, height: 0 },
+    shadowOpacity: 0.8,
+    shadowRadius: 15,
+  },
+  // 持續時間文字樣式
+  durationText: {
+    position: 'absolute',
+    top: -5,
+    right: -5,
+    fontSize: 12,
+    fontWeight: 'bold',
+    color: '#FFFFFF',
+    backgroundColor: 'rgba(0, 0, 0, 0.8)',
+    borderRadius: 10,
+    paddingHorizontal: 4,
+    paddingVertical: 2,
+    minWidth: 20,
+    textAlign: 'center',
+    borderWidth: 1,
+    borderColor: '#FFFFFF',
   },
 });
 

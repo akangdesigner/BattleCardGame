@@ -11,97 +11,149 @@ import {
 
 const { width: screenWidth } = Dimensions.get('window');
 
-// 卡片類型定義
-export const CARD_TYPES = {
-  SOLDIER: {
-    id: 'SOLDIER',
-    name: '士兵',
-    description: '基礎戰鬥單位',
-    cost: 1,
-    attack: 1,
-    health: 1,
-    color: '#8B4513',
-    icon: '⚔️',
-    image: '🛡️'
-  },
-  ARCHER: {
-    id: 'ARCHER',
-    name: '弓箭手',
-    description: '遠程攻擊單位',
+// 技能卡牌類型定義
+export const SKILL_CARDS = {
+  // 基礎型近戰單位共用卡 - 需要基礎型近戰棋子
+  HOLY_SHIELD: {
+    id: 'HOLY_SHIELD',
+    name: '聖盾術',
+    description: '抵擋下一次所受傷害',
     cost: 2,
-    attack: 2,
-    health: 1,
-    color: '#C0C0C0',
-    icon: '🏹',
-    image: '🏹'
-  },
-  WARRIOR: {
-    id: 'WARRIOR',
-    name: '戰士',
-    description: '近戰強力單位',
-    cost: 3,
-    attack: 3,
-    health: 2,
+    duration: 1,
+    restriction: '不可與其他護盾技能同回合使用',
+    type: 'basic_melee_shared',
+    requiredPieces: ['S', 'SM', 'SD', 'CC'], // 需要士兵、太刀武士、睏睏狗或食人螃蟹
     color: '#FFD700',
     icon: '🛡️',
-    image: '⚔️'
+    image: 'shield'
   },
-  MAGE: {
-    id: 'MAGE',
-    name: '法師',
-    description: '魔法攻擊單位',
-    cost: 4,
-    attack: 2,
-    health: 3,
+  SPIKED_ARMOR: {
+    id: 'SPIKED_ARMOR',
+    name: '尖刺戰甲',
+    description: '下回合若被近戰攻擊，反彈同等傷害',
+    cost: 2,
+    duration: 1,
+    restriction: '僅對近戰攻擊生效',
+    type: 'basic_melee_shared',
+    requiredPieces: ['S', 'SM', 'SD', 'CC'], // 需要士兵、太刀武士、睏睏狗或食人螃蟹
+    color: '#8B4513',
+    icon: '⚔️',
+    image: 'armor'
+  },
+  // 遠程單位專屬
+  BURNING_ARROW: {
+    id: 'BURNING_ARROW',
+    name: '燃燒箭',
+    description: '造成傷害後，目標於下一回合再失去50點生命',
+    cost: 3,
+    duration: 2,
+    restriction: '射程與普通攻擊一致',
+    type: 'ranged_exclusive',
+    requiredPieces: ['A', 'CB'], // 需要弓箭手或弩手
+    color: '#FF4500',
+    icon: '🔥',
+    image: 'burning_arrow'
+  },
+  // 魔法師專屬
+  LIGHTNING_BOLT: {
+    id: 'LIGHTNING_BOLT',
+    name: '落雷術',
+    description: '以攻擊格為中心，額外對前後格造成同等傷害',
+    cost: 3,
+    duration: 0, // 即時
+    restriction: '需指定攻擊格',
+    type: 'mage_exclusive',
+    requiredPieces: ['M'], // 需要魔法師
     color: '#9B59B6',
-    icon: '🔮',
-    image: '🔮'
+    icon: '⚡',
+    image: 'lightning'
   },
-  KNIGHT: {
-    id: 'KNIGHT',
-    name: '騎士',
-    description: '高機動性單位',
+  HAIL_STORM: {
+    id: 'HAIL_STORM',
+    name: '冰雹術',
+    description: '以攻擊格為中心，額外對左右格造成同等傷害',
+    cost: 3,
+    duration: 0, // 即時
+    restriction: '需指定攻擊格',
+    type: 'mage_exclusive',
+    requiredPieces: ['M'], // 需要魔法師
+    color: '#87CEEB',
+    icon: '❄️',
+    image: 'hail'
+  },
+  // 刺客專屬
+  SHADOW_CLOAK: {
+    id: 'SHADOW_CLOAK',
+    name: '暗影披風',
+    description: '隱身一回合，不可被指定為攻擊或技能目標',
+    cost: 4,
+    duration: 1,
+    restriction: '',
+    type: 'assassin_exclusive',
+    requiredPieces: ['AS'], // 需要刺客
+    color: '#2C2C2C',
+    icon: '👤',
+    image: 'shadow'
+  },
+  // 心靈控制者專屬
+  DEATH_CURSE: {
+    id: 'DEATH_CURSE',
+    name: '死亡詛咒',
+    description: '指定一名基礎單位，該單位在下一回合結束時死亡',
     cost: 5,
-    attack: 4,
-    health: 2,
+    duration: 1, // 1回合延遲
+    restriction: '不可對英雄或主堡使用',
+    type: 'mind_controller_exclusive',
+    requiredPieces: ['MT'], // 需要心智扭曲者
+    color: '#8A2BE2',
+    icon: '💀',
+    image: 'curse'
+  },
+  // 騎士專屬
+  CHARGE_ATTACK: {
+    id: 'CHARGE_ATTACK',
+    name: '衝鋒攻擊',
+    description: '騎士可以移動到敵方棋子位置並造成額外傷害',
+    cost: 3,
+    duration: 0, // 即時
+    restriction: '只能對敵方棋子使用',
+    type: 'knight_exclusive',
+    requiredPieces: ['K'], // 需要騎士
     color: '#2F4F4F',
     icon: '🐎',
-    image: '🐎'
+    image: 'charge'
   },
-  PRIEST: {
-    id: 'PRIEST',
-    name: '牧師',
-    description: '治療與支援單位',
-    cost: 3,
-    attack: 1,
-    health: 3,
+  // 牧師專屬
+  HEALING_PRAYER: {
+    id: 'HEALING_PRAYER',
+    name: '治療禱告',
+    description: '恢復目標棋子100點生命值',
+    cost: 2,
+    duration: 0, // 即時
+    restriction: '只能對己方棋子使用',
+    type: 'priest_exclusive',
+    requiredPieces: ['P'], // 需要牧師
     color: '#FFFFFF',
     icon: '⛪',
-    image: 'priest'
+    image: 'heal'
   },
-  ASSASSIN: {
-    id: 'ASSASSIN',
-    name: '刺客',
-    description: '隱身與暗殺單位',
+  // 戰爭建築師專屬
+  DEFENSIVE_WALL: {
+    id: 'DEFENSIVE_WALL',
+    name: '防禦牆',
+    description: '為己方棋子提供額外防禦力',
     cost: 4,
-    attack: 3,
-    health: 1,
-    color: '#2C2C2C',
-    icon: '🗡️',
-    image: 'assassin'
-  },
-  MIND_TWISTER: {
-    id: 'MIND_TWISTER',
-    name: '心智扭曲者',
-    description: '精神控制單位',
-    cost: 6,
-    attack: 2,
-    health: 4,
-    color: '#8A2BE2',
-    icon: '🌀',
-    image: 'mindtwister'
+    duration: 2,
+    restriction: '只能對己方棋子使用',
+    type: 'architect_exclusive',
+    requiredPieces: ['WA'], // 需要戰爭建築師
+    color: '#8B4513',
+    icon: '🏰',
+    image: 'wall'
   }
 };
+
+// 卡片類型定義（已刪除，只保留技能卡牌）
 
 // 卡片組件
 export const CardComponent = ({ card, onPress, isSelected = false, size = 'normal', onSwipeUp, onDrag, onDragEnd, isDragging = false }) => {
@@ -112,14 +164,17 @@ export const CardComponent = ({ card, onPress, isSelected = false, size = 'norma
   const scale = isSelected ? 2.5 : 1;
   const zIndex = isSelected ? 20 : 1;
   
+  // 所有卡牌都是技能卡
+  const isSkillCard = true;
+  
   // 拖曳相關的動畫值 - 使用 useRef 避免重新創建
   const pan = useRef(new Animated.ValueXY()).current;
   const scaleAnim = useRef(new Animated.Value(1)).current;
   
-  // 獲取卡片在原始數組中的索引
+  // 獲取技能卡在數組中的索引
   const getCardIndex = () => {
-    const allCards = Object.values(CARD_TYPES);
-    return allCards.findIndex(c => c.id === card.id) + 1;
+    const allSkillCards = Object.values(SKILL_CARDS);
+    return allSkillCards.findIndex(c => c.id === card.id) + 1;
   };
 
   // 處理拖曳手勢
@@ -198,9 +253,16 @@ export const CardComponent = ({ card, onPress, isSelected = false, size = 'norma
       {...panResponder.panHandlers}
     >
       <View style={{ flex: 1, justifyContent: 'center', alignItems: 'center' }}>
-        <Text style={[styles.cardNumber, { fontSize: fontSize * 1.5, color: '#FFFFFF' }]}>
-          {getCardIndex()}
+        {/* 技能卡顯示圖標 */}
+        <Text style={[styles.cardIcon, { fontSize: fontSize * 2, color: card.color }]}>
+          {card.icon}
         </Text>
+        
+        {/* 技能卡顯示消耗 */}
+        <Text style={[styles.cardCost, { fontSize: fontSize * 0.8, color: '#FFD700' }]}>
+          {card.cost}
+        </Text>
+        
         {/* 選中時顯示關閉按鈕 */}
         {isSelected && (
           <TouchableOpacity
@@ -384,6 +446,9 @@ export const CardSystem = ({
   };
 
   const selectedCardIndex = getSelectedCardIndex();
+  
+  // 所有卡片都是技能卡
+  const isSelectedSkillCard = selectedCard && selectedCard.type;
 
   // 根據卡片索引返回對應的定位樣式
   const getCardPosition = (index) => {
@@ -450,7 +515,7 @@ export const CardSystem = ({
         </View>
 
         {/* 結束回合按鈕 - 只在玩家回合顯示 */}
-        {currentPlayer === 'human' && onEndTurn && (
+        {currentPlayer === 'human' && (
           <TouchableOpacity 
             style={styles.endTurnButton}
             onPress={onEndTurn}
@@ -470,6 +535,20 @@ export const CardSystem = ({
             isSelected={true}
             size="normal"
           />
+          {/* 技能卡詳細資訊 */}
+          {isSelectedSkillCard && (
+            <View style={styles.skillCardDetails}>
+              <Text style={styles.skillCardName}>{selectedCard.name}</Text>
+              <Text style={styles.skillCardDescription}>{selectedCard.description}</Text>
+              <Text style={styles.skillCardCost}>消耗: {selectedCard.cost}</Text>
+              {selectedCard.duration > 0 && (
+                <Text style={styles.skillCardDuration}>持續: {selectedCard.duration}回合</Text>
+              )}
+              {selectedCard.restriction && (
+                <Text style={styles.skillCardRestriction}>限制: {selectedCard.restriction}</Text>
+              )}
+            </View>
+          )}
         </View>
       )}
       
@@ -665,6 +744,14 @@ const styles = StyleSheet.create({
     fontWeight: 'bold',
     textAlign: 'center',
   },
+  // 技能卡圖標樣式
+  cardIcon: {
+    fontWeight: 'bold',
+    textAlign: 'center',
+    textShadowColor: 'rgba(0, 0, 0, 0.5)',
+    textShadowOffset: { width: 1, height: 1 },
+    textShadowRadius: 2,
+  },
   deckCount: {
     color: '#FFFFFF',
     fontSize: 16,
@@ -834,5 +921,51 @@ const styles = StyleSheet.create({
     fontSize: 16,
     color: '#FFD700',
     fontWeight: 'bold',
+  },
+  // 技能卡詳細資訊樣式
+  skillCardDetails: {
+    position: 'absolute',
+    top: -200,
+    left: -80,
+    width: 160,
+    backgroundColor: 'rgba(0, 0, 0, 0.9)',
+    borderRadius: 10,
+    padding: 10,
+    borderWidth: 2,
+    borderColor: '#FFD700',
+    zIndex: 1001,
+  },
+  skillCardName: {
+    color: '#FFD700',
+    fontSize: 14,
+    fontWeight: 'bold',
+    textAlign: 'center',
+    marginBottom: 5,
+  },
+  skillCardDescription: {
+    color: '#FFFFFF',
+    fontSize: 10,
+    textAlign: 'center',
+    marginBottom: 5,
+    lineHeight: 14,
+  },
+  skillCardCost: {
+    color: '#FFD700',
+    fontSize: 10,
+    textAlign: 'center',
+    marginBottom: 3,
+  },
+  skillCardDuration: {
+    color: '#87CEEB',
+    fontSize: 10,
+    textAlign: 'center',
+    marginBottom: 3,
+  },
+  skillCardRestriction: {
+    color: '#FF6B6B',
+    fontSize: 9,
+    textAlign: 'center',
+    fontStyle: 'italic',
+    lineHeight: 12,
   },
 });
