@@ -223,7 +223,7 @@ export const SKILL_CARDS = {
   LOYAL_GUARDIAN: {
     id: 'LOYAL_GUARDIAN',
     name: '忠犬守護',
-    description: '替相鄰友軍承受50傷害',
+    description: '替自身9宮格內的友方承受傷害直到陣亡',
     cost: 1,
     duration: 0, // 即時
     restriction: '只能對己方睏睏狗使用',

@@ -1096,7 +1096,6 @@ const styles = StyleSheet.create({
     height: CELL_SIZE,
     justifyContent: 'center',
     alignItems: 'center',
-    backgroundColor: '#8B4513', // 棕色背景
     borderRadius: 8,
     borderWidth: 2,
     borderColor: '#654321',

@@ -231,6 +231,7 @@ const ChessBoard3D = ({ onBack, gameMode, playerDeck: initialPlayerDeck }) => {
   const [isSelectingTarget, setIsSelectingTarget] = useState(false);
   const [skillTargets, setSkillTargets] = useState([]);
   const [hasShownSkillError, setHasShownSkillError] = useState(false);
+  const [hasConsumedActionPoints, setHasConsumedActionPoints] = useState(false);
 
   // 當初始棋組改變時更新棋盤上的棋子
   useEffect(() => {
@@ -297,6 +298,7 @@ const ChessBoard3D = ({ onBack, gameMode, playerDeck: initialPlayerDeck }) => {
       
       // === AI方布局 (第0-1行) ===
       // AI棋子：弓箭手、螃蟹、城堡、心智扭曲者、太刀武士、牧師
+      newBoard[0][0] = 'A'; // AI弓箭手（最左邊）
       newBoard[1][2] = 'A'; // AI弓箭手
       newBoard[1][4] = 'CC'; // AI螃蟹
       newBoard[1][5] = 'SM'; // AI太刀武士（在螃蟹右邊）
@@ -558,19 +560,37 @@ const ChessBoard3D = ({ onBack, gameMode, playerDeck: initialPlayerDeck }) => {
         setSkillTargets([]);
         setHasShownSkillError(false); // 重置錯誤提示狀態
       } else if (selectedCard && selectedCard.id === card.id) {
-        // 如果點擊已選中的卡片，取消選中
-        setSelectedCard(null);
-        setPendingSkillCard(null);
-        setIsSelectingTarget(false);
-        setSkillTargets([]);
-        setHasShownSkillError(false); // 重置錯誤提示狀態
+        // 如果點擊已選中的卡片
+        if (selectedCard.type === 'basic') {
+          // 基本卡再次點擊直接執行
+          applySkillEffect(selectedCard, null, null);
+          setSelectedCard(null);
+          setPendingSkillCard(null);
+          setIsSelectingTarget(false);
+          setSkillTargets([]);
+          setHasShownSkillError(false);
+          setHasConsumedActionPoints(false);
+        } else if (isSelectingTarget && pendingSkillCard) {
+          // 非基本卡正在選擇目標時，取消選中
+          setSelectedCard(null);
+          setPendingSkillCard(null);
+          setIsSelectingTarget(false);
+          setSkillTargets([]);
+          setHasShownSkillError(false);
+          setHasConsumedActionPoints(false);
+        } else {
+          // 非基本卡未選擇目標時，取消選中
+          setSelectedCard(null);
+          setPendingSkillCard(null);
+          setIsSelectingTarget(false);
+          setSkillTargets([]);
+          setHasShownSkillError(false);
+          setHasConsumedActionPoints(false);
+        }
       } else if (isSelectingTarget && pendingSkillCard) {
-        // 如果正在選擇目標，則取消技能使用
-        setSelectedCard(null);
-        setPendingSkillCard(null);
-        setIsSelectingTarget(false);
-        setSkillTargets([]);
-        setHasShownSkillError(false); // 重置錯誤提示狀態
+        // 如果正在選擇目標，則阻止新卡牌使用但保持當前狀態
+        Alert.alert('請先完成當前技能', '請先選擇目標或取消當前技能');
+        return; // 阻止繼續執行
       } else {
         // 檢查是否有足夠的行動點
         if (actionPoints.current < card.cost) {
@@ -596,16 +616,19 @@ const ChessBoard3D = ({ onBack, gameMode, playerDeck: initialPlayerDeck }) => {
         
         // 檢查是否為基本卡牌（不需要目標）
         if (card.type === 'basic') {
-          // 基本卡牌直接執行
+          // 基本卡牌也需要先選中，讓玩家可以查看詳情
           setSelectedCard(card);
           setPendingSkillCard(card);
-          applySkillEffect(card, null, null);
+          // 不直接執行，等待下一次點擊
         } else {
           // 其他卡牌需要選擇目標
           setSelectedCard(card);
           setPendingSkillCard(card);
+          // 消耗行動點後設置選擇目標狀態
+          consumeActionPoints('card', card.cost);
           setIsSelectingTarget(true);
           setSkillTargets(getValidTargets(card));
+          setHasConsumedActionPoints(true);
         }
       }
     }
@@ -616,11 +639,13 @@ const ChessBoard3D = ({ onBack, gameMode, playerDeck: initialPlayerDeck }) => {
     if (!card || !card.type) return [];
     
     const targets = [];
+    console.log(`檢查技能卡 ${card.name} 的有效目標`);
     
     // 遍歷棋盤找到有效目標
     for (let row = 0; row < BOARD_SIZE; row++) {
       for (let col = 0; col < BOARD_SIZE; col++) {
         const piece = board[row][col];
+        
         
         // 特殊處理：防禦牆需要空格子作為目標
         if (card.id === 'DEFENSIVE_WALL') {
@@ -630,10 +655,11 @@ const ChessBoard3D = ({ onBack, gameMode, playerDeck: initialPlayerDeck }) => {
           continue;
         }
         
-        if (piece === 'empty') continue;
-        
         const pieceKey = `${row}-${col}`;
         const pieceOwner = pieceOwners[pieceKey];
+        
+        // 如果沒有歸屬權記錄，根據位置推斷歸屬權
+        const inferredOwner = pieceOwner || (row <= 1 ? 'ai' : 'human');
         
         // 檢查目標是否有隱身狀態（暗影披風效果）
         const pieceState = pieceStates[pieceKey];
@@ -648,92 +674,97 @@ const ChessBoard3D = ({ onBack, gameMode, playerDeck: initialPlayerDeck }) => {
           }
         }
         
+        // 跳過空格子（除了特殊處理的防禦牆）
+        if (piece === 'empty') continue;
+        
+        // 調試第0列的棋子
+        
         // 根據技能卡牌類型確定有效目標
         switch (card.type) {
           case 'basic_melee_shared':
             // 基礎近戰共用技能：只能對己方的對應棋子使用
-            if (pieceOwner === 'human' && card.requiredPieces.includes(piece)) {
-              targets.push({ row, col, piece, owner: pieceOwner });
+            if (inferredOwner === 'human' && card.requiredPieces.includes(piece)) {
+              targets.push({ row, col, piece, owner: inferredOwner });
             }
             break;
           case 'ranged_exclusive':
             // 遠程專屬：只能對己方遠程單位使用
-            if (pieceOwner === 'human' && card.requiredPieces.includes(piece)) {
-              targets.push({ row, col, piece, owner: pieceOwner });
+            if (inferredOwner === 'human' && card.requiredPieces.includes(piece)) {
+              targets.push({ row, col, piece, owner: inferredOwner });
             }
             break;
           case 'ranged_attack':
             // 遠程攻擊：可以攻擊任何格子（放置燃燒效果，並影響格子上的棋子）
-            targets.push({ row, col, piece: piece, owner: pieceOwner });
+            targets.push({ row, col, piece: piece, owner: inferredOwner });
             break;
           case 'mage_exclusive':
             // 魔法師專屬：只能對己方魔法師使用
             console.log(`檢查魔法師專屬技能: piece=${piece}, requiredPieces=${card.requiredPieces}, 包含=${card.requiredPieces.includes(piece)}`);
-            if (pieceOwner === 'human' && card.requiredPieces.includes(piece)) {
-              targets.push({ row, col, piece, owner: pieceOwner });
+            if (inferredOwner === 'human' && card.requiredPieces.includes(piece)) {
+              targets.push({ row, col, piece, owner: inferredOwner });
               console.log(`添加魔法師目標: [${row},${col}]`);
             }
             break;
           case 'assassin_exclusive':
             // 刺客專屬：只能對己方刺客使用
-            if (pieceOwner === 'human' && card.requiredPieces.includes(piece)) {
-              targets.push({ row, col, piece, owner: pieceOwner });
+            if (inferredOwner === 'human' && card.requiredPieces.includes(piece)) {
+              targets.push({ row, col, piece, owner: inferredOwner });
             }
             break;
           case 'knight_exclusive':
             // 騎士專屬：只能對己方騎士使用
-            if (pieceOwner === 'human' && card.requiredPieces.includes(piece)) {
-              targets.push({ row, col, piece, owner: pieceOwner });
+            if (inferredOwner === 'human' && card.requiredPieces.includes(piece)) {
+              targets.push({ row, col, piece, owner: inferredOwner });
             }
             break;
           case 'priest_exclusive':
             // 牧師專屬：可以對所有己方棋子使用（治療禱告）
-            if (pieceOwner === 'human' && piece !== 'empty') {
-              targets.push({ row, col, piece, owner: pieceOwner });
+            if (inferredOwner === 'human' && piece !== 'empty') {
+              targets.push({ row, col, piece, owner: inferredOwner });
             }
             break;
           case 'priest_group_exclusive':
             // 牧師群體專屬：只能對己方牧師使用（群體祈禱）
-            if (pieceOwner === 'human' && card.requiredPieces.includes(piece)) {
-              targets.push({ row, col, piece, owner: pieceOwner });
+            if (inferredOwner === 'human' && card.requiredPieces.includes(piece)) {
+              targets.push({ row, col, piece, owner: inferredOwner });
             }
             break;
           case 'crab_exclusive':
             // 螃蟹專屬：只能對己方螃蟹使用（堅殼防禦）
-            if (pieceOwner === 'human' && card.requiredPieces.includes(piece)) {
-              targets.push({ row, col, piece, owner: pieceOwner });
+            if (inferredOwner === 'human' && card.requiredPieces.includes(piece)) {
+              targets.push({ row, col, piece, owner: inferredOwner });
             }
             break;
           case 'architect_exclusive':
             // 戰爭建築師專屬：只能對己方棋子使用
-            if (pieceOwner === 'human' && piece !== 'empty') {
-              targets.push({ row, col, piece, owner: pieceOwner });
+            if (inferredOwner === 'human' && piece !== 'empty') {
+              targets.push({ row, col, piece, owner: inferredOwner });
             }
             break;
           case 'mind_controller_exclusive':
             // 心靈控制者專屬：可以對敵方基礎單位使用
             if (card.id === 'DEATH_CURSE') {
               const pieceCategory = getPieceCategory(piece);
-              if (pieceCategory === 'basic' && pieceOwner !== 'human') {
+              if (pieceCategory === 'basic' && inferredOwner !== 'human') {
                 // 檢查是否在心智扭曲者四格範圍內
                 const mindTwisterPos = getMindTwisterPosition();
                 if (mindTwisterPos) {
                   const distance = getDistance(mindTwisterPos.row, mindTwisterPos.col, row, col);
                   if (distance <= 4) {
-                    targets.push({ row, col, piece, owner: pieceOwner });
+                    targets.push({ row, col, piece, owner: inferredOwner });
                   }
                 }
               }
             } else {
               // 其他心靈控制者技能：只能對己方心智扭曲者使用
-              if (pieceOwner === 'human' && card.requiredPieces.includes(piece)) {
-                targets.push({ row, col, piece, owner: pieceOwner });
+              if (inferredOwner === 'human' && card.requiredPieces.includes(piece)) {
+                targets.push({ row, col, piece, owner: inferredOwner });
               }
             }
             break;
           case 'soldier_exclusive':
             // 皇家護衛專屬：只能對己方皇家護衛使用
-            if (pieceOwner === 'human' && card.requiredPieces.includes(piece)) {
+            if (inferredOwner === 'human' && card.requiredPieces.includes(piece)) {
               // 榮譽之血特殊邏輯：只能對受傷的前排皇家護衛使用
               if (card.id === 'HONOR_BLOOD') {
                 const pieceKey = `${row}-${col}`;
@@ -742,30 +773,30 @@ const ChessBoard3D = ({ onBack, gameMode, playerDeck: initialPlayerDeck }) => {
                 const isInjured = pieceState && pieceState.health < pieceState.maxHealth;
                 
                 if (isFrontRow && isInjured) {
-                  targets.push({ row, col, piece, owner: pieceOwner });
+                  targets.push({ row, col, piece, owner: inferredOwner });
                 }
               } else {
                 // 其他皇家護衛專屬技能正常處理
-                targets.push({ row, col, piece, owner: pieceOwner });
+                targets.push({ row, col, piece, owner: inferredOwner });
               }
             }
             break;
           case 'soldier_samurai_shared':
             // 皇家護衛和太刀武士共用：只能對己方皇家護衛或太刀武士使用
-            if (pieceOwner === 'human' && card.requiredPieces.includes(piece)) {
-              targets.push({ row, col, piece, owner: pieceOwner });
+            if (inferredOwner === 'human' && card.requiredPieces.includes(piece)) {
+              targets.push({ row, col, piece, owner: inferredOwner });
             }
             break;
           case 'samurai_exclusive':
             // 太刀武士專屬：只能對己方太刀武士使用
-            if (pieceOwner === 'human' && card.requiredPieces.includes(piece)) {
-              targets.push({ row, col, piece, owner: pieceOwner });
+            if (inferredOwner === 'human' && card.requiredPieces.includes(piece)) {
+              targets.push({ row, col, piece, owner: inferredOwner });
             }
             break;
           case 'sleepy_dog_exclusive':
             // 睏睏狗專屬：只能對己方睏睏狗使用
-            if (pieceOwner === 'human' && card.requiredPieces.includes(piece)) {
-              targets.push({ row, col, piece, owner: pieceOwner });
+            if (inferredOwner === 'human' && card.requiredPieces.includes(piece)) {
+              targets.push({ row, col, piece, owner: inferredOwner });
             }
             break;
           case 'basic':
@@ -773,8 +804,8 @@ const ChessBoard3D = ({ onBack, gameMode, playerDeck: initialPlayerDeck }) => {
             return [];
           default:
             // 默認：只能對己方的對應棋子使用
-            if (pieceOwner === 'human' && card.requiredPieces.includes(piece)) {
-              targets.push({ row, col, piece, owner: pieceOwner });
+            if (inferredOwner === 'human' && card.requiredPieces.includes(piece)) {
+              targets.push({ row, col, piece, owner: inferredOwner });
             }
         }
       }
@@ -795,7 +826,7 @@ const ChessBoard3D = ({ onBack, gameMode, playerDeck: initialPlayerDeck }) => {
     // 基本卡牌不需要目標
     if (card.type === 'basic') {
       // 直接執行基本卡牌效果
-    } else if (!targetRow || !targetCol) {
+    } else if (targetRow === null || targetRow === undefined || targetCol === null || targetCol === undefined) {
       return false;
     }
     
@@ -824,14 +855,14 @@ const ChessBoard3D = ({ onBack, gameMode, playerDeck: initialPlayerDeck }) => {
         );
         
         if (!hasHolyShield) {
-          setPieceStates(prev => ({
-            ...prev,
-            [pieceKey]: {
-              ...prev[pieceKey],
-              buffs: [...(prev[pieceKey]?.buffs || []), { type: 'holy_shield', endTurn: currentTurn + 2 }]
-            }
-          }));
-          console.log('聖盾術buff已添加');
+        setPieceStates(prev => ({
+          ...prev,
+          [pieceKey]: {
+            ...prev[pieceKey],
+            buffs: [...(prev[pieceKey]?.buffs || []), { type: 'holy_shield', endTurn: currentTurn + 2 }]
+          }
+        }));
+        console.log('聖盾術buff已添加');
         } else {
           console.log('聖盾術buff已存在，不重複添加');
         }
@@ -845,13 +876,13 @@ const ChessBoard3D = ({ onBack, gameMode, playerDeck: initialPlayerDeck }) => {
         );
         
         if (!hasSpikedArmor) {
-          setPieceStates(prev => ({
-            ...prev,
-            [pieceKey]: {
-              ...prev[pieceKey],
-              buffs: [...(prev[pieceKey]?.buffs || []), { type: 'spiked_armor', endTurn: currentTurn + 2 }]
-            }
-          }));
+        setPieceStates(prev => ({
+          ...prev,
+          [pieceKey]: {
+            ...prev[pieceKey],
+            buffs: [...(prev[pieceKey]?.buffs || []), { type: 'spiked_armor', endTurn: currentTurn + 2 }]
+          }
+        }));
           console.log('尖刺戰甲buff已添加');
         } else {
           console.log('尖刺戰甲buff已存在，不重複添加');
@@ -903,13 +934,13 @@ const ChessBoard3D = ({ onBack, gameMode, playerDeck: initialPlayerDeck }) => {
         );
         
         if (!hasShadowCloak) {
-          setPieceStates(prev => ({
-            ...prev,
-            [pieceKey]: {
-              ...prev[pieceKey],
-              buffs: [...(prev[pieceKey]?.buffs || []), { type: 'shadow_cloak', endTurn: currentTurn + 2 }]
-            }
-          }));
+        setPieceStates(prev => ({
+          ...prev,
+          [pieceKey]: {
+            ...prev[pieceKey],
+            buffs: [...(prev[pieceKey]?.buffs || []), { type: 'shadow_cloak', endTurn: currentTurn + 2 }]
+          }
+        }));
           console.log('暗影披風buff已添加');
         } else {
           console.log('暗影披風buff已存在，不重複添加');
@@ -944,7 +975,6 @@ const ChessBoard3D = ({ onBack, gameMode, playerDeck: initialPlayerDeck }) => {
         // 防禦牆：創造一個300血的牆壁衍生物
         // 需要選擇目標位置（只能在我方陣營的四列內，即第4-7行）
         if (targetRow === null || targetCol === null) {
-          console.log('防禦牆需要選擇目標位置');
           return false;
         }
         
@@ -959,6 +989,7 @@ const ChessBoard3D = ({ onBack, gameMode, playerDeck: initialPlayerDeck }) => {
           Alert.alert('位置被佔用', '該位置已有棋子');
           return false;
         }
+        
         
         // 在目標位置創造牆壁衍生物
         const wallKey = `${targetRow}-${targetCol}`;
@@ -991,17 +1022,16 @@ const ChessBoard3D = ({ onBack, gameMode, playerDeck: initialPlayerDeck }) => {
         return true;
         
       case 'BATTLEFIELD_SUPPLY':
-        // 戰地補給：先消耗自己，然後抽取2張牌
-        // 先移除戰地補給卡（在applySkillEffect函數末尾會自動處理）
-        console.log('戰地補給：先消耗自己，然後抽卡');
+        // 戰地補給：抽取2張牌（不超過手牌上限）
+        const maxHandSize = 7; // 手牌上限
+        const cardsToDraw = Math.min(2, maxHandSize - playerHand.length);
         
-        // 抽取2張牌
-        for (let i = 0; i < 2; i++) {
+        // 抽取卡牌
+        for (let i = 0; i < cardsToDraw; i++) {
           if (playerCardDeck.length > 0) {
             const newCard = playerCardDeck[0];
             setPlayerCardDeck(prev => prev.slice(1));
             setPlayerHand(prev => [...prev, newCard]);
-            console.log(`戰地補給抽卡: ${newCard.name}`);
           }
         }
         break;
@@ -1078,15 +1108,16 @@ const ChessBoard3D = ({ onBack, gameMode, playerDeck: initialPlayerDeck }) => {
         break;
         
       case 'LOYAL_GUARDIAN':
-        // 忠犬守護：替相鄰友軍承受50傷害
+        // 忠犬守護：替自身9宮格內的友方承受傷害
         setPieceStates(prev => ({
           ...prev,
           [pieceKey]: {
             ...prev[pieceKey],
             buffs: [...(prev[pieceKey]?.buffs || []), { 
               type: 'loyal_guardian', 
-              endTurn: currentTurn + 1, // 持續1回合
-              damageReduction: 50 // 承受傷害量
+              endTurn: currentTurn + 4, // 持續4回合
+              protectionRange: 1, // 9宮格範圍
+              protectedPieces: [] // 受保護的棋子列表
             }]
           }
         }));
@@ -1100,18 +1131,18 @@ const ChessBoard3D = ({ onBack, gameMode, playerDeck: initialPlayerDeck }) => {
         );
         
         if (!hasChargeAssault) {
-          setPieceStates(prev => ({
-            ...prev,
-            [pieceKey]: {
-              ...prev[pieceKey],
-              buffs: [...(prev[pieceKey]?.buffs || []), { 
-                type: 'charge_assault', 
-                endTurn: currentTurn + 2,
-                moveBonus: 1, // 移動距離+1
+        setPieceStates(prev => ({
+          ...prev,
+          [pieceKey]: {
+            ...prev[pieceKey],
+            buffs: [...(prev[pieceKey]?.buffs || []), { 
+              type: 'charge_assault', 
+              endTurn: currentTurn + 2,
+              moveBonus: 1, // 移動距離+1
                 impactDamage: 100 // 撞擊傷害
-              }]
-            }
-          }));
+            }]
+          }
+        }));
           console.log('衝鋒突擊buff已添加，目標位置:', targetRow, targetCol, '持續到回合:', currentTurn + 2);
         } else {
           console.log('衝鋒突擊buff已存在，不重複添加');
@@ -1682,9 +1713,13 @@ const ChessBoard3D = ({ onBack, gameMode, playerDeck: initialPlayerDeck }) => {
     
     setActionPoints(prev => {
       const newPoints = Math.max(0, prev.current - actualCost);
-      console.log(`消耗行動點: ${actionType} 消耗 ${actualCost} 點，剩餘 ${newPoints} 點`);
       return { ...prev, current: newPoints };
     });
+    
+    // 如果是卡牌消耗，設置已消耗行動點標記
+    if (actionType === 'card') {
+      setHasConsumedActionPoints(true);
+    }
     
     return actualCost;
   };
@@ -1851,7 +1886,7 @@ const ChessBoard3D = ({ onBack, gameMode, playerDeck: initialPlayerDeck }) => {
     let actualDamage = attackPower;
     let guardianKey = null;
     
-    // 檢查目標周圍是否有睏睏狗提供忠犬守護
+    // 檢查目標9宮格內是否有睏睏狗提供忠犬守護
     const directions = [[-1, -1], [-1, 0], [-1, 1], [0, -1], [0, 1], [1, -1], [1, 0], [1, 1]];
     for (const [dRow, dCol] of directions) {
       const guardianRow = targetRow + dRow;
@@ -1868,12 +1903,12 @@ const ChessBoard3D = ({ onBack, gameMode, playerDeck: initialPlayerDeck }) => {
           );
           
           if (loyalGuardianBuff) {
-            // 找到忠犬守護，轉移傷害
-            const damageToTransfer = Math.min(actualDamage, loyalGuardianBuff.damageReduction || 50);
-            actualDamage -= damageToTransfer;
+            // 找到忠犬守護，轉移全部傷害
+            const damageToTransfer = actualDamage;
+            actualDamage = 0; // 目標不受傷害
             guardianKey = guardianPieceKey;
             
-            // 睏睏狗承受傷害
+            // 睏睏狗承受全部傷害
             const guardianHealth = guardianState.health || getPieceHealth(guardianPiece);
             const newGuardianHealth = Math.max(0, guardianHealth - damageToTransfer);
             
@@ -1885,6 +1920,10 @@ const ChessBoard3D = ({ onBack, gameMode, playerDeck: initialPlayerDeck }) => {
                 hasBeenAttacked: true
               }
             }));
+            
+            if (newGuardianHealth <= 0) {
+              console.log(`忠犬守護：睏睏狗陣亡，忠犬守護效果結束`);
+            }
             
             console.log(`忠犬守護：睏睏狗承受了 ${damageToTransfer} 點傷害`);
             break;
@@ -2634,11 +2673,11 @@ const ChessBoard3D = ({ onBack, gameMode, playerDeck: initialPlayerDeck }) => {
             }
             
             if (canAttack) {
-              // 可以攻擊敵方棋子
-              allMoves.push({
-                from: { row, col, piece },
-                to: { row: newRow, col: newCol, type: 'attack' }
-              });
+            // 可以攻擊敵方棋子
+            allMoves.push({
+              from: { row, col, piece },
+              to: { row: newRow, col: newCol, type: 'attack' }
+            });
             }
           }
         }
@@ -2794,6 +2833,7 @@ const ChessBoard3D = ({ onBack, gameMode, playerDeck: initialPlayerDeck }) => {
           setIsSelectingTarget(false);
           setSkillTargets([]);
           setSelectedCard(null);
+          setHasConsumedActionPoints(false);
         }
         return;
       } else {
@@ -2885,20 +2925,20 @@ const ChessBoard3D = ({ onBack, gameMode, playerDeck: initialPlayerDeck }) => {
               
               // 檢查遊戲是否結束
               const gameEndResult = checkGameEnd();
-              if (gameEndResult.gameOver) {
-                Alert.alert(
-                  '遊戲結束',
-                  gameEndResult.winner === 'human' ? '你勝利了！' : 'AI勝利了！',
-                  [
-                    {
-                      text: '確定',
-                      onPress: () => {
-                        // 遊戲結束處理
+                if (gameEndResult.gameOver) {
+                  Alert.alert(
+                    '遊戲結束',
+                    gameEndResult.winner === 'human' ? '你勝利了！' : 'AI勝利了！',
+                    [
+                      {
+                        text: '確定',
+                        onPress: () => {
+                          // 遊戲結束處理
+                        }
                       }
-                    }
-                  ]
-                );
-              }
+                    ]
+                  );
+                }
             }
           });
         } else {
@@ -2963,11 +3003,6 @@ const ChessBoard3D = ({ onBack, gameMode, playerDeck: initialPlayerDeck }) => {
 
     // 檢查是否為技能目標
     const isSkillTarget = isSelectingTarget && pendingSkillCard && skillTargets.some(target => target.row === row && target.col === col);
-    
-    // 調試信息
-    if (isSkillTarget) {
-      console.log(`棋子 [${row},${col}] 被標記為技能目標`);
-    }
 
     return (
       <TouchableOpacity
@@ -3072,15 +3107,6 @@ const ChessBoard3D = ({ onBack, gameMode, playerDeck: initialPlayerDeck }) => {
 
       {/* 簡化的棋盤容器 */}
       <View style={styles.boardContainer}>
-        {/* 左方行座標 */}
-        <View style={styles.rowCoordinates}>
-          {board.map((_, rowIndex) => (
-            <Text key={rowIndex} style={styles.coordinateText}>
-              {rowIndex}
-            </Text>
-          ))}
-        </View>
-        
         {/* 棋盤主體 */}
         <View style={styles.boardWithCoordinates}>
           <View style={styles.board}>
@@ -3124,18 +3150,30 @@ const ChessBoard3D = ({ onBack, gameMode, playerDeck: initialPlayerDeck }) => {
             ))}
           </View>
           
-          {/* 下方列座標 */}
-          <View style={styles.columnCoordinates}>
-            {board[0].map((_, colIndex) => (
-              <Text key={colIndex} style={styles.coordinateText}>
-                {colIndex}
+          {/* 選擇目標提示 */}
+          {isSelectingTarget && pendingSkillCard && hasConsumedActionPoints && (
+            <View style={styles.targetSelectionHint}>
+              <Text style={styles.targetSelectionText}>
+                請選擇目標棋子或格子
               </Text>
-            ))}
-          </View>
+              <TouchableOpacity 
+                style={styles.cancelButton}
+                onPress={() => {
+                  setSelectedCard(null);
+                  setPendingSkillCard(null);
+                  setIsSelectingTarget(false);
+                  setSkillTargets([]);
+                  setHasShownSkillError(false);
+                  setHasConsumedActionPoints(false);
+                }}
+              >
+                <Text style={styles.cancelButtonText}>✕</Text>
+              </TouchableOpacity>
+            </View>
+          )}
+          
         </View>
       </View>
-      
-
 
       {/* 卡牌系統 */}
       <CardSystem
@@ -3407,7 +3445,41 @@ const styles = StyleSheet.create({
       { translateY: -3 }
     ],
   },
-  // 移除城堡容器樣式
+  // 選擇目標提示樣式
+  targetSelectionHint: {
+    backgroundColor: 'rgba(255, 215, 0, 0.9)',
+    paddingHorizontal: 15,
+    paddingVertical: 8,
+    borderRadius: 6,
+    marginHorizontal: 20,
+    marginVertical: 8,
+    borderWidth: 2,
+    borderColor: '#FFD700',
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'center',
+  },
+  targetSelectionText: {
+    color: '#000000',
+    fontSize: 14,
+    fontWeight: 'bold',
+    flex: 1,
+    textAlign: 'center',
+  },
+  cancelButton: {
+    backgroundColor: '#FF4444',
+    borderRadius: 15,
+    width: 30,
+    height: 30,
+    justifyContent: 'center',
+    alignItems: 'center',
+    marginLeft: 10,
+  },
+  cancelButtonText: {
+    color: '#FFFFFF',
+    fontSize: 16,
+    fontWeight: 'bold',
+  },
 });
 
 export default ChessBoard3D;
