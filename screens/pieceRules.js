@@ -15,7 +15,7 @@ export const DIRECTIONS = {
 
 // 棋子類型枚舉
 export const PIECE_TYPES = {
-  S: 'S', // 士兵
+  S: 'S', // 皇家護衛
   A: 'A', // 弓箭手
   M: 'M', // 法師
   K: 'K', // 騎士
@@ -34,8 +34,8 @@ export const PIECE_TYPES = {
 // 棋子規則定義
 export const PIECE_RULES = {
   [PIECE_TYPES.S]: {
-    name: '士兵',
-    moveRange: 1, // 移動範圍：1格
+    name: '皇家護衛',
+    moveRange: 2, // 移動範圍：2格（第一次移動）
     moveDirections: [DIRECTIONS.UP, DIRECTIONS.DOWN, DIRECTIONS.LEFT, DIRECTIONS.RIGHT], // 只能上下左右移動
     attackRange: 1, // 攻擊範圍：1格
     attackDistance: 1, // 攻擊距離：1格
@@ -46,7 +46,7 @@ export const PIECE_RULES = {
     attackType: 'melee', // 攻擊類型：近戰
     category: 'basic', // 分類：基礎型
     specialRules: {
-      // 士兵沒有特殊規則
+      firstMoveAdvance: true // 第一次移動可以前進2格
     }
   },
   
@@ -73,7 +73,7 @@ export const PIECE_RULES = {
   
   [PIECE_TYPES.M]: {
     name: '法師',
-    moveRange: 1,
+    moveRange: 2,
     moveDirections: [DIRECTIONS.UP, DIRECTIONS.DOWN, DIRECTIONS.LEFT, DIRECTIONS.RIGHT],
     attackRange: 2, // 攻擊範圍：2格
     attackDistance: 2, // 攻擊距離：2格
@@ -114,10 +114,10 @@ export const PIECE_RULES = {
 
   [PIECE_TYPES.P]: {
     name: '牧師',
-    moveRange: 1, // 移動範圍：1格
-    moveDirections: [DIRECTIONS.UP, DIRECTIONS.DOWN, DIRECTIONS.LEFT, DIRECTIONS.RIGHT],
-    attackRange: 1, // 攻擊範圍：1格
-    attackDistance: 1, // 攻擊距離：1格
+    moveRange: 2, // 移動範圍：2格
+    moveDirections: [DIRECTIONS.UP_LEFT, DIRECTIONS.UP_RIGHT, DIRECTIONS.DOWN_LEFT, DIRECTIONS.DOWN_RIGHT], // 只能斜向移動
+    attackRange: 2, // 攻擊範圍：2格
+    attackDistance: 2, // 攻擊距離：2格
     attackDirections: [DIRECTIONS.UP, DIRECTIONS.DOWN, DIRECTIONS.LEFT, DIRECTIONS.RIGHT],
     attackPower: 50, // 攻擊力：50
     maxHealth: 100, // 最大血量：100（遠程）
@@ -127,7 +127,8 @@ export const PIECE_RULES = {
     specialRules: {
       healing: true, // 可以治療己方棋子
       canHealAdjacent: true, // 可以治療相鄰的己方棋子
-      canMoveThroughAllies: true // 可以穿過己方棋子
+      canMoveThroughAllies: true, // 可以穿過己方棋子
+      diagonalMovement: true // 斜向移動特殊規則
     }
   },
 
@@ -249,7 +250,7 @@ export const PIECE_RULES = {
 
   [PIECE_TYPES.CC]: {
     name: '食人螃蟹',
-    moveRange: 1, // 移動範圍：1格
+    moveRange: 3, // 移動範圍：3格（橫向）
     moveDirections: [DIRECTIONS.UP, DIRECTIONS.DOWN, DIRECTIONS.LEFT, DIRECTIONS.RIGHT],
     attackRange: 1, // 攻擊範圍：1格
     attackDistance: 1, // 攻擊距離：1格
@@ -262,7 +263,8 @@ export const PIECE_RULES = {
     specialRules: {
       strongDefense: true, // 強防禦
       highHealth: true, // 高血量
-      canDefend: true // 可以防禦
+      canDefend: true, // 可以防禦
+      crabMovement: true // 螃蟹特殊移動：橫向3格，直向1格
     }
   },
 
@@ -350,15 +352,96 @@ export const isValidPosition = (row, col, boardSize) => {
 };
 
 // 獲取棋子的所有可能移動位置
-export const getPossibleMoves = (pieceType, fromRow, fromCol, board, pieceOwners, currentPlayer) => {
+export const getPossibleMoves = (pieceType, fromRow, fromCol, board, pieceOwners, currentPlayer, pieceStates = null) => {
   const moves = [];
-  const moveRange = getPieceMoveRange(pieceType);
+  let moveRange = getPieceMoveRange(pieceType);
   const moveDirections = getPieceMoveDirections(pieceType);
   const specialRules = getPieceSpecialRules(pieceType);
   const boardSize = board.length;
   
+  // 檢查皇家護衛的第一次移動特殊規則
+  if (pieceType === PIECE_TYPES.S && specialRules.firstMoveAdvance && pieceStates) {
+    const pieceKey = `${fromRow}-${fromCol}`;
+    const pieceState = pieceStates[pieceKey];
+    if (pieceState && pieceState.hasMoved) {
+      // 已經移動過，只能移動1格
+      moveRange = 1;
+    }
+    // 如果沒有移動過，保持原來的moveRange（2格）
+  }
+  
+  // 檢查堅殼防禦buff - 如果有效果則無法移動
+  if (pieceStates) {
+    const pieceKey = `${fromRow}-${fromCol}`;
+    const pieceState = pieceStates[pieceKey];
+    if (pieceState && pieceState.buffs) {
+      const shellDefenseBuff = pieceState.buffs.find(buff => 
+        buff.type === 'shell_defense' && buff.cannotMove
+      );
+      
+      if (shellDefenseBuff) {
+        console.log('堅殼防禦：棋子無法移動');
+        return []; // 返回空數組，表示無法移動
+      }
+    }
+  }
+  
+  // 檢查衝鋒令buff效果
+  if (pieceStates) {
+    const pieceKey = `${fromRow}-${fromCol}`;
+    const pieceState = pieceStates[pieceKey];
+    if (pieceState && pieceState.buffs) {
+      const chargeOrderBuff = pieceState.buffs.find(buff => buff.type === 'charge_order');
+      if (chargeOrderBuff) {
+        // 衝鋒令：移動距離+1
+        moveRange += chargeOrderBuff.moveBonus || 1;
+      }
+      
+      // 檢查衝鋒突擊buff效果
+      const chargeAssaultBuff = pieceState.buffs.find(buff => buff.type === 'charge_assault');
+      if (chargeAssaultBuff) {
+        // 衝鋒突擊：直線移動距離+1
+        moveRange += chargeAssaultBuff.moveBonus || 1;
+      }
+    }
+  }
+  
+  // 檢查安眠氣息debuff效果
+  if (pieceStates) {
+    const pieceKey = `${fromRow}-${fromCol}`;
+    const pieceState = pieceStates[pieceKey];
+    if (pieceState && pieceState.debuffs) {
+      const sleepyAuraDebuff = pieceState.debuffs.find(debuff => debuff.type === 'sleepy_aura');
+      if (sleepyAuraDebuff) {
+        // 安眠氣息：移動距離-1
+        const originalRange = moveRange;
+        moveRange = Math.max(1, moveRange - 1);
+        console.log(`安眠氣息效果：棋子[${fromRow},${fromCol}] 移動距離從 ${originalRange} 減少到 ${moveRange}`);
+      }
+    }
+  }
+  
+  // 檢查螃蟹的特殊移動規則
+  if (pieceType === PIECE_TYPES.CC && specialRules.crabMovement) {
+    // 螃蟹的移動範圍會根據方向動態調整
+    // 在下面的循環中處理
+  }
+  
   moveDirections.forEach(([dRow, dCol]) => {
-    for (let distance = 1; distance <= moveRange; distance++) {
+    // 根據螃蟹的特殊移動規則調整移動範圍
+    let currentMoveRange = moveRange;
+    if (pieceType === PIECE_TYPES.CC && specialRules.crabMovement) {
+      // 螃蟹：橫向（左右）3格，直向（上下）1格
+      if (dRow === 0) {
+        // 橫向移動（左右）
+        currentMoveRange = 3;
+      } else {
+        // 直向移動（上下）
+        currentMoveRange = 1;
+      }
+    }
+    
+    for (let distance = 1; distance <= currentMoveRange; distance++) {
       const newRow = fromRow + (dRow * distance);
       const newCol = fromCol + (dCol * distance);
       
@@ -391,7 +474,7 @@ export const getPossibleMoves = (pieceType, fromRow, fromCol, board, pieceOwners
 };
 
 // 獲取棋子的所有可能攻擊位置
-export const getPossibleAttacks = (pieceType, fromRow, fromCol, board, pieceOwners, currentPlayer) => {
+export const getPossibleAttacks = (pieceType, fromRow, fromCol, board, pieceOwners, currentPlayer, pieceStates = null) => {
   const attacks = [];
   const attackRange = getPieceAttackRange(pieceType);
   const attackDirections = getPieceAttackDirections(pieceType);
@@ -415,6 +498,21 @@ export const getPossibleAttacks = (pieceType, fromRow, fromCol, board, pieceOwne
         
         // 只對敵方棋子顯示攻擊提示
         if (targetOwner && targetOwner !== currentPlayer) {
+          // 檢查目標是否有隱身狀態（暗影披風效果）
+          if (pieceStates) {
+            const targetState = pieceStates[pieceKey];
+            if (targetState && targetState.buffs) {
+              const shadowCloakBuff = targetState.buffs.find(buff => 
+                buff.type === 'shadow_cloak' && buff.endTurn > currentTurn
+              );
+              
+              if (shadowCloakBuff) {
+                console.log(`跳過隱身目標: [${newRow},${newCol}] 敵方棋子 ${targetPiece} 處於隱身狀態`);
+                continue; // 跳過隱身的棋子
+              }
+            }
+          }
+          
           console.log(`攻擊目標: [${newRow},${newCol}] 敵方棋子 ${targetPiece}`);
           // 檢查特殊規則
           if (specialRules.requiresAllyInFront) {
@@ -473,16 +571,16 @@ const hasAllyInFront = (fromRow, fromCol, targetRow, targetCol, board, pieceOwne
 };
 
 // 檢查移動是否合法
-export const isValidMove = (pieceType, fromRow, fromCol, toRow, toCol, board, pieceOwners, currentPlayer) => {
-  const possibleMoves = getPossibleMoves(pieceType, fromRow, fromCol, board, pieceOwners, currentPlayer);
+export const isValidMove = (pieceType, fromRow, fromCol, toRow, toCol, board, pieceOwners, currentPlayer, pieceStates = null) => {
+  const possibleMoves = getPossibleMoves(pieceType, fromRow, fromCol, board, pieceOwners, currentPlayer, pieceStates);
   const isValid = possibleMoves.some(move => move.row === toRow && move.col === toCol);
   console.log(`isValidMove: [${fromRow},${fromCol}] -> [${toRow},${toCol}] = ${isValid}, possibleMoves count: ${possibleMoves.length}`);
   return isValid;
 };
 
 // 檢查攻擊是否合法
-export const isValidAttack = (pieceType, fromRow, fromCol, toRow, toCol, board, pieceOwners, currentPlayer) => {
-  const possibleAttacks = getPossibleAttacks(pieceType, fromRow, fromCol, board, pieceOwners, currentPlayer);
+export const isValidAttack = (pieceType, fromRow, fromCol, toRow, toCol, board, pieceOwners, currentPlayer, pieceStates = null) => {
+  const possibleAttacks = getPossibleAttacks(pieceType, fromRow, fromCol, board, pieceOwners, currentPlayer, pieceStates);
   const isValid = possibleAttacks.some(attack => attack.row === toRow && attack.col === toCol);
   console.log(`isValidAttack: [${fromRow},${fromCol}] -> [${toRow},${toCol}] = ${isValid}, possibleAttacks count: ${possibleAttacks.length}`);
   return isValid;

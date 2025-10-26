@@ -119,6 +119,29 @@ const HealthBar = ({ piece, currentHealth, maxHealth, isPlayerPiece }) => {
   );
 };
 
+// 牆壁棋子組件
+const WallPiece = ({ isSelected, isHighlighted, isSkillTarget, currentTurn = 0, pieceStates }) => {
+  // 計算剩餘回合數
+  let remainingTurns = 0;
+  if (pieceStates && pieceStates.endTurn) {
+    remainingTurns = Math.max(0, pieceStates.endTurn - currentTurn);
+  }
+  
+  return (
+    <View style={[
+      styles.wallPiece,
+      isSelected && styles.selectedPiece,
+      isHighlighted && styles.highlightedPiece,
+      isSkillTarget && styles.skillTargetPiece
+    ]}>
+      <Text style={styles.wallIcon}>🧱</Text>
+      {remainingTurns > 0 && (
+        <Text style={styles.durationText}>{remainingTurns}</Text>
+      )}
+    </View>
+  );
+};
+
 // 統一的棋子管理器
 const PieceManager = ({ piece, isSelected, isHighlighted, isSkillTarget, currentHealth, maxHealth, isPlayerPiece, skillEffects, currentTurn = 0 }) => {
   // 如果沒有傳入血量，使用默認值
@@ -128,7 +151,7 @@ const PieceManager = ({ piece, isSelected, isHighlighted, isSkillTarget, current
   // 根據棋子類型返回對應的組件
   const pieceComponent = (() => {
     switch (piece) {
-      case 'S': // 士兵
+      case 'S': // 皇家護衛
         return <SoldierPiece isSelected={isSelected} isHighlighted={isHighlighted} isSkillTarget={isSkillTarget} />;
       case 'A': // 弓箭手
         return <ArcherPiece isSelected={isSelected} isHighlighted={isHighlighted} isSkillTarget={isSkillTarget} />;
@@ -154,6 +177,8 @@ const PieceManager = ({ piece, isSelected, isHighlighted, isSkillTarget, current
         return <CarnivorousCrabPiece isSelected={isSelected} isHighlighted={isHighlighted} isSkillTarget={isSkillTarget} />;
       case 'CASTLE': // 中古城堡
         return <CastlePiece isSelected={isSelected} isHighlighted={isHighlighted} isSkillTarget={isSkillTarget} />;
+      case 'WALL': // 防禦牆
+        return <WallPiece isSelected={isSelected} isHighlighted={isHighlighted} isSkillTarget={isSkillTarget} currentTurn={currentTurn} pieceStates={skillEffects} />;
       default:
         return <EmptyPiece />;
     }
@@ -265,13 +290,83 @@ const SkillEffectsDisplay = ({ piece, skillEffects, currentTurn = 0 }) => {
                 <Text style={styles.durationText}>{remainingTurns}</Text>
               </View>
             )}
-          {buff.type === 'burning_arrow' && (
-            <View style={styles.burningArrowEffect}>
-              <Text style={styles.burningArrowIcon}>🔥</Text>
-              <View style={styles.burningArrowGlow} />
-              <Text style={styles.durationText}>{remainingTurns}</Text>
-            </View>
-          )}
+            {buff.type === 'burning_arrow' && (
+              <View style={styles.burningArrowEffect}>
+                <Text style={styles.burningArrowIcon}>🔥</Text>
+                <View style={styles.burningArrowGlow} />
+                <Text style={styles.durationText}>{remainingTurns}</Text>
+              </View>
+            )}
+            {buff.type === 'sleepy_aura' && (
+              <View style={styles.sleepyAuraEffect}>
+                <Text style={styles.sleepyAuraIcon}>😴</Text>
+                <View style={styles.sleepyAuraGlow} />
+                <Text style={styles.durationText}>{remainingTurns}</Text>
+              </View>
+            )}
+            {buff.type === 'loyal_guardian' && (
+              <View style={styles.loyalGuardianEffect}>
+                <Text style={styles.loyalGuardianIcon}>🐾</Text>
+                <View style={styles.loyalGuardianGlow} />
+                <Text style={styles.durationText}>{remainingTurns}</Text>
+              </View>
+            )}
+            {buff.type === 'charge_order' && (
+              <View style={styles.chargeOrderEffect}>
+                <Text style={styles.chargeOrderIcon}>📜</Text>
+                <View style={styles.chargeOrderGlow} />
+                <Text style={styles.durationText}>{remainingTurns}</Text>
+              </View>
+            )}
+            {buff.type === 'honor_blood' && (
+              <View style={styles.honorBloodEffect}>
+                <Text style={styles.honorBloodIcon}>🩸</Text>
+                <View style={styles.honorBloodGlow} />
+                <Text style={styles.durationText}>{remainingTurns}</Text>
+              </View>
+            )}
+            {buff.type === 'hail_storm' && (
+              <View style={styles.hailStormEffect}>
+                <Text style={styles.hailStormIcon}>❄️</Text>
+                <View style={styles.hailStormGlow} />
+                <Text style={styles.durationText}>{remainingTurns}</Text>
+              </View>
+            )}
+            {buff.type === 'lightning_bolt' && (
+              <View style={styles.lightningBoltEffect}>
+                <Text style={styles.lightningBoltIcon}>⚡</Text>
+                <View style={styles.lightningBoltGlow} />
+                <Text style={styles.durationText}>{remainingTurns}</Text>
+              </View>
+            )}
+            {buff.type === 'draw_sword_slash' && (
+              <View style={styles.drawSwordSlashEffect}>
+                <Text style={styles.drawSwordSlashIcon}>🗡️</Text>
+                <View style={styles.drawSwordSlashGlow} />
+                <Text style={styles.durationText}>{remainingTurns}</Text>
+              </View>
+            )}
+            {buff.type === 'charge_assault' && (
+              <View style={styles.chargeAssaultEffect}>
+                <Text style={styles.chargeAssaultIcon}>🐎</Text>
+                <View style={styles.chargeAssaultGlow} />
+                <Text style={styles.durationText}>{remainingTurns}</Text>
+              </View>
+            )}
+            {buff.type === 'shell_defense' && (
+              <View style={styles.shellDefenseEffect}>
+                <Text style={styles.shellDefenseIcon}>🪨</Text>
+                <View style={styles.shellDefenseGlow} />
+                <Text style={styles.durationText}>{remainingTurns}</Text>
+              </View>
+            )}
+            {buff.type === 'glory_strike' && (
+              <View style={styles.gloryStrikeEffect}>
+                <Text style={styles.gloryStrikeIcon}>✨</Text>
+                <View style={styles.gloryStrikeGlow} />
+                <Text style={styles.durationText}>{remainingTurns}</Text>
+              </View>
+            )}
         </View>
       );
       })}
@@ -294,6 +389,13 @@ const SkillEffectsDisplay = ({ piece, skillEffects, currentTurn = 0 }) => {
               <View style={styles.deathCurseEffect}>
                 <Text style={styles.deathIcon}>💀</Text>
                 <View style={styles.deathGlow} />
+                <Text style={styles.durationText}>{remainingTurns}</Text>
+              </View>
+            )}
+            {debuff.type === 'sleepy_aura' && (
+              <View style={styles.sleepyAuraDebuffEffect}>
+                <Text style={styles.sleepyAuraDebuffIcon}>😴</Text>
+                <View style={styles.sleepyAuraDebuffGlow} />
                 <Text style={styles.durationText}>{remainingTurns}</Text>
               </View>
             )}
@@ -685,6 +787,292 @@ const styles = StyleSheet.create({
     shadowOpacity: 0.8,
     shadowRadius: 15,
   },
+  // 安眠氣息效果（增益）
+  sleepyAuraEffect: {
+    position: 'relative',
+    justifyContent: 'center',
+    alignItems: 'center',
+  },
+  sleepyAuraIcon: {
+    fontSize: 30,
+    zIndex: 10,
+    textShadowColor: '#9370DB',
+    textShadowOffset: { width: 0, height: 0 },
+    textShadowRadius: 10,
+  },
+  sleepyAuraGlow: {
+    position: 'absolute',
+    width: 80,
+    height: 80,
+    borderRadius: 40,
+    backgroundColor: 'rgba(147, 112, 219, 0.3)',
+    borderWidth: 2,
+    borderColor: '#9370DB',
+    shadowColor: '#9370DB',
+    shadowOffset: { width: 0, height: 0 },
+    shadowOpacity: 0.8,
+    shadowRadius: 15,
+  },
+  // 安眠氣息效果（減益）
+  sleepyAuraDebuffEffect: {
+    position: 'relative',
+    justifyContent: 'center',
+    alignItems: 'center',
+  },
+  sleepyAuraDebuffIcon: {
+    fontSize: 30,
+    zIndex: 10,
+    textShadowColor: '#8A2BE2',
+    textShadowOffset: { width: 0, height: 0 },
+    textShadowRadius: 10,
+  },
+  sleepyAuraDebuffGlow: {
+    position: 'absolute',
+    width: 80,
+    height: 80,
+    borderRadius: 40,
+    backgroundColor: 'rgba(138, 43, 226, 0.3)',
+    borderWidth: 2,
+    borderColor: '#8A2BE2',
+    shadowColor: '#8A2BE2',
+    shadowOffset: { width: 0, height: 0 },
+    shadowOpacity: 0.8,
+    shadowRadius: 15,
+  },
+  // 忠犬守護效果
+  loyalGuardianEffect: {
+    position: 'relative',
+    justifyContent: 'center',
+    alignItems: 'center',
+  },
+  loyalGuardianIcon: {
+    fontSize: 30,
+    zIndex: 10,
+    textShadowColor: '#FFD700',
+    textShadowOffset: { width: 0, height: 0 },
+    textShadowRadius: 10,
+  },
+  loyalGuardianGlow: {
+    position: 'absolute',
+    width: 80,
+    height: 80,
+    borderRadius: 40,
+    backgroundColor: 'rgba(255, 215, 0, 0.3)',
+    borderWidth: 2,
+    borderColor: '#FFD700',
+    shadowColor: '#FFD700',
+    shadowOffset: { width: 0, height: 0 },
+    shadowOpacity: 0.8,
+    shadowRadius: 15,
+  },
+  // 衝鋒指令效果
+  chargeOrderEffect: {
+    position: 'relative',
+    justifyContent: 'center',
+    alignItems: 'center',
+  },
+  chargeOrderIcon: {
+    fontSize: 30,
+    zIndex: 10,
+    textShadowColor: '#00BFFF',
+    textShadowOffset: { width: 0, height: 0 },
+    textShadowRadius: 10,
+  },
+  chargeOrderGlow: {
+    position: 'absolute',
+    width: 80,
+    height: 80,
+    borderRadius: 40,
+    backgroundColor: 'rgba(0, 191, 255, 0.3)',
+    borderWidth: 2,
+    borderColor: '#00BFFF',
+    shadowColor: '#00BFFF',
+    shadowOffset: { width: 0, height: 0 },
+    shadowOpacity: 0.8,
+    shadowRadius: 15,
+  },
+  // 榮血效果
+  honorBloodEffect: {
+    position: 'relative',
+    justifyContent: 'center',
+    alignItems: 'center',
+  },
+  honorBloodIcon: {
+    fontSize: 30,
+    zIndex: 10,
+    textShadowColor: '#DC143C',
+    textShadowOffset: { width: 0, height: 0 },
+    textShadowRadius: 10,
+  },
+  honorBloodGlow: {
+    position: 'absolute',
+    width: 80,
+    height: 80,
+    borderRadius: 40,
+    backgroundColor: 'rgba(220, 20, 60, 0.3)',
+    borderWidth: 2,
+    borderColor: '#DC143C',
+    shadowColor: '#DC143C',
+    shadowOffset: { width: 0, height: 0 },
+    shadowOpacity: 0.8,
+    shadowRadius: 15,
+  },
+  // 冰雹術效果
+  hailStormEffect: {
+    position: 'relative',
+    justifyContent: 'center',
+    alignItems: 'center',
+  },
+  hailStormIcon: {
+    fontSize: 30,
+    zIndex: 10,
+    textShadowColor: '#87CEEB',
+    textShadowOffset: { width: 0, height: 0 },
+    textShadowRadius: 10,
+  },
+  hailStormGlow: {
+    position: 'absolute',
+    width: 80,
+    height: 80,
+    borderRadius: 40,
+    backgroundColor: 'rgba(135, 206, 235, 0.3)',
+    borderWidth: 2,
+    borderColor: '#87CEEB',
+    shadowColor: '#87CEEB',
+    shadowOffset: { width: 0, height: 0 },
+    shadowOpacity: 0.8,
+    shadowRadius: 15,
+  },
+  // 落雷術效果
+  lightningBoltEffect: {
+    position: 'relative',
+    justifyContent: 'center',
+    alignItems: 'center',
+  },
+  lightningBoltIcon: {
+    fontSize: 30,
+    zIndex: 10,
+    textShadowColor: '#9B59B6',
+    textShadowOffset: { width: 0, height: 0 },
+    textShadowRadius: 10,
+  },
+  lightningBoltGlow: {
+    position: 'absolute',
+    width: 80,
+    height: 80,
+    borderRadius: 40,
+    backgroundColor: 'rgba(155, 89, 182, 0.3)',
+    borderWidth: 2,
+    borderColor: '#9B59B6',
+    shadowColor: '#9B59B6',
+    shadowOffset: { width: 0, height: 0 },
+    shadowOpacity: 0.8,
+    shadowRadius: 15,
+  },
+  // 拔刀斬效果
+  drawSwordSlashEffect: {
+    position: 'relative',
+    justifyContent: 'center',
+    alignItems: 'center',
+  },
+  drawSwordSlashIcon: {
+    fontSize: 30,
+    zIndex: 10,
+    textShadowColor: '#C0C0C0',
+    textShadowOffset: { width: 0, height: 0 },
+    textShadowRadius: 10,
+  },
+  drawSwordSlashGlow: {
+    position: 'absolute',
+    width: 80,
+    height: 80,
+    borderRadius: 40,
+    backgroundColor: 'rgba(192, 192, 192, 0.3)',
+    borderWidth: 2,
+    borderColor: '#C0C0C0',
+    shadowColor: '#C0C0C0',
+    shadowOffset: { width: 0, height: 0 },
+    shadowOpacity: 0.8,
+    shadowRadius: 15,
+  },
+  // 衝鋒突擊效果
+  chargeAssaultEffect: {
+    position: 'relative',
+    justifyContent: 'center',
+    alignItems: 'center',
+  },
+  chargeAssaultIcon: {
+    fontSize: 30,
+    zIndex: 10,
+    textShadowColor: '#FF6347',
+    textShadowOffset: { width: 0, height: 0 },
+    textShadowRadius: 10,
+  },
+  chargeAssaultGlow: {
+    position: 'absolute',
+    width: 80,
+    height: 80,
+    borderRadius: 40,
+    backgroundColor: 'rgba(255, 99, 71, 0.3)',
+    borderWidth: 2,
+    borderColor: '#FF6347',
+    shadowColor: '#FF6347',
+    shadowOffset: { width: 0, height: 0 },
+    shadowOpacity: 0.8,
+    shadowRadius: 15,
+  },
+  // 堅殼防禦效果
+  shellDefenseEffect: {
+    position: 'relative',
+    justifyContent: 'center',
+    alignItems: 'center',
+  },
+  shellDefenseIcon: {
+    fontSize: 30,
+    zIndex: 10,
+    textShadowColor: '#8B4513',
+    textShadowOffset: { width: 0, height: 0 },
+    textShadowRadius: 10,
+  },
+  shellDefenseGlow: {
+    position: 'absolute',
+    width: 80,
+    height: 80,
+    borderRadius: 40,
+    backgroundColor: 'rgba(139, 69, 19, 0.3)',
+    borderWidth: 2,
+    borderColor: '#8B4513',
+    shadowColor: '#8B4513',
+    shadowOffset: { width: 0, height: 0 },
+    shadowOpacity: 0.8,
+    shadowRadius: 15,
+  },
+  // 光耀斬擊效果
+  gloryStrikeEffect: {
+    position: 'relative',
+    justifyContent: 'center',
+    alignItems: 'center',
+  },
+  gloryStrikeIcon: {
+    fontSize: 30,
+    zIndex: 10,
+    textShadowColor: '#FFD700',
+    textShadowOffset: { width: 0, height: 0 },
+    textShadowRadius: 10,
+  },
+  gloryStrikeGlow: {
+    position: 'absolute',
+    width: 80,
+    height: 80,
+    borderRadius: 40,
+    backgroundColor: 'rgba(255, 215, 0, 0.3)',
+    borderWidth: 2,
+    borderColor: '#FFD700',
+    shadowColor: '#FFD700',
+    shadowOffset: { width: 0, height: 0 },
+    shadowOpacity: 0.8,
+    shadowRadius: 15,
+  },
   // 持續時間文字樣式
   durationText: {
     position: 'absolute',
@@ -701,6 +1089,34 @@ const styles = StyleSheet.create({
     textAlign: 'center',
     borderWidth: 1,
     borderColor: '#FFFFFF',
+  },
+  // 牆壁棋子樣式
+  wallPiece: {
+    width: CELL_SIZE,
+    height: CELL_SIZE,
+    justifyContent: 'center',
+    alignItems: 'center',
+    backgroundColor: '#8B4513', // 棕色背景
+    borderRadius: 8,
+    borderWidth: 2,
+    borderColor: '#654321',
+    shadowColor: '#8B4513',
+    shadowOffset: { width: 0, height: 2 },
+    shadowOpacity: 0.8,
+    shadowRadius: 4,
+    elevation: 5,
+  },
+  wallIcon: {
+    fontSize: 24,
+    marginBottom: 2,
+  },
+  wallText: {
+    fontSize: 10,
+    fontWeight: 'bold',
+    color: '#FFFFFF',
+    textShadowColor: '#000000',
+    textShadowOffset: { width: 1, height: 1 },
+    textShadowRadius: 2,
   },
 });
 

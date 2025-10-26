@@ -9,7 +9,7 @@ const CELL_SIZE = Math.min(screenWidth / BOARD_SIZE - 1, 50);
 const SoldierPiece = ({ isSelected, isHighlighted, isSkillTarget }) => {
   return (
     <View style={styles.container}>
-      {/* 使用您的士兵圖片 */}
+      {/* 使用您的皇家護衛圖片 */}
       <Image
         source={require('../../assets/image/soldier.png')}
         style={[

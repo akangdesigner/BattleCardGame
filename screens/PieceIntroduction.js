@@ -16,12 +16,12 @@ const { width: screenWidth, height: screenHeight } = Dimensions.get('window');
 const PIECE_DATA = [
   {
     id: 'S',
-    name: '士兵',
+    name: '皇家護衛',
     symbol: 'S',
     color: '#8B4513',
     category: '基礎型',
     skill: '基礎近戰攻擊，移動範圍小但穩定',
-    description: '忠誠的士兵，基礎戰鬥單位，穩定可靠。移動範圍小但攻擊穩定，是戰場上的中堅力量。',
+    description: '忠誠的皇家護衛，基礎戰鬥單位，穩定可靠。移動範圍小但攻擊穩定，是戰場上的中堅力量。',
     movement: '只能向前移動一格',
     attack: '攻擊相鄰的敵人',
   },

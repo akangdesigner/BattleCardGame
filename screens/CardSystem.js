@@ -11,6 +11,20 @@ import {
 
 const { width: screenWidth } = Dimensions.get('window');
 
+// 卡牌類型定義
+// basic: 基本卡 - 每個牌組都有的通用卡牌，不需要特定棋子
+// basic_melee_shared: 基礎型近戰單位共用卡 - 需要基礎型近戰棋子
+// ranged_exclusive: 遠程單位專屬卡 - 需要弓箭手或弩手
+// mage_exclusive: 魔法師專屬卡 - 需要魔法師
+// assassin_exclusive: 刺客專屬卡 - 需要刺客
+// mind_controller_exclusive: 心靈控制者專屬卡 - 需要心智扭曲者
+// priest_exclusive: 牧師專屬卡 - 需要牧師
+// architect_exclusive: 戰爭建築師專屬卡 - 需要戰爭建築師
+// soldier_exclusive: 皇家護衛專屬卡 - 需要皇家護衛
+// samurai_exclusive: 太刀武士專屬卡 - 需要太刀武士
+// sleepy_dog_exclusive: 睏睏狗專屬卡 - 需要睏睏狗
+// knight_exclusive: 騎士專屬卡 - 需要騎士
+
 // 技能卡牌類型定義
 export const SKILL_CARDS = {
   // 基礎型近戰單位共用卡 - 需要基礎型近戰棋子
@@ -22,7 +36,7 @@ export const SKILL_CARDS = {
     duration: 1,
     restriction: '不可與其他護盾技能同回合使用',
     type: 'basic_melee_shared',
-    requiredPieces: ['S', 'SM', 'SD', 'CC'], // 需要士兵、太刀武士、睏睏狗或食人螃蟹
+    requiredPieces: ['S', 'SM', 'SD', 'CC'], // 需要皇家護衛、太刀武士、睏睏狗或食人螃蟹
     color: '#FFD700',
     icon: '🛡️',
     image: 'shield'
@@ -35,7 +49,7 @@ export const SKILL_CARDS = {
     duration: 1,
     restriction: '僅對近戰攻擊生效',
     type: 'basic_melee_shared',
-    requiredPieces: ['S', 'SM', 'SD', 'CC'], // 需要士兵、太刀武士、睏睏狗或食人螃蟹
+    requiredPieces: ['S', 'SM', 'SD', 'CC'], // 需要皇家護衛、太刀武士、睏睏狗或食人螃蟹
     color: '#8B4513',
     icon: '⚔️',
     image: 'armor'
@@ -44,12 +58,12 @@ export const SKILL_CARDS = {
   BURNING_ARROW: {
     id: 'BURNING_ARROW',
     name: '燃燒箭',
-    description: '造成傷害後，目標於下一回合再失去50點生命',
+    description: '射手攻擊時，燃燒箭會轉移到被攻擊的格子上，該格子的棋子每回合扣50血量',
     cost: 3,
-    duration: 2,
+    duration: 1, // 修改為1回合
     restriction: '射程與普通攻擊一致',
     type: 'ranged_exclusive',
-    requiredPieces: ['A', 'CB'], // 需要弓箭手或弩手
+    requiredPieces: ['A'], // 需要弓箭手
     color: '#FF4500',
     icon: '🔥',
     image: 'burning_arrow'
@@ -58,10 +72,10 @@ export const SKILL_CARDS = {
   LIGHTNING_BOLT: {
     id: 'LIGHTNING_BOLT',
     name: '落雷術',
-    description: '以攻擊格為中心，額外對前後格造成同等傷害',
+    description: '附加在魔法師身上，攻擊時以目標為中心對前後格造成額外傷害',
     cost: 3,
-    duration: 0, // 即時
-    restriction: '需指定攻擊格',
+    duration: 1, // 持續1回合
+    restriction: '只能對己方魔法師使用',
     type: 'mage_exclusive',
     requiredPieces: ['M'], // 需要魔法師
     color: '#9B59B6',
@@ -71,10 +85,10 @@ export const SKILL_CARDS = {
   HAIL_STORM: {
     id: 'HAIL_STORM',
     name: '冰雹術',
-    description: '以攻擊格為中心，額外對左右格造成同等傷害',
+    description: '攻擊時以目標為中心對左右格造成額外傷害',
     cost: 3,
-    duration: 0, // 即時
-    restriction: '需指定攻擊格',
+    duration: 1, // 持續1回合
+    restriction: '只能對己方魔法師使用',
     type: 'mage_exclusive',
     requiredPieces: ['M'], // 需要魔法師
     color: '#87CEEB',
@@ -102,54 +116,178 @@ export const SKILL_CARDS = {
     description: '指定一名基礎單位，該單位在下一回合結束時死亡',
     cost: 5,
     duration: 1, // 1回合延遲
-    restriction: '不可對英雄或主堡使用',
+    restriction: '不可對英雄或主堡使用，必須在心智扭曲者四格範圍內',
     type: 'mind_controller_exclusive',
     requiredPieces: ['MT'], // 需要心智扭曲者
     color: '#8A2BE2',
     icon: '💀',
     image: 'curse'
   },
-  // 騎士專屬
-  CHARGE_ATTACK: {
-    id: 'CHARGE_ATTACK',
-    name: '衝鋒攻擊',
-    description: '騎士可以移動到敵方棋子位置並造成額外傷害',
-    cost: 3,
-    duration: 0, // 即時
-    restriction: '只能對敵方棋子使用',
-    type: 'knight_exclusive',
-    requiredPieces: ['K'], // 需要騎士
-    color: '#2F4F4F',
-    icon: '🐎',
-    image: 'charge'
-  },
   // 牧師專屬
   HEALING_PRAYER: {
     id: 'HEALING_PRAYER',
     name: '治療禱告',
-    description: '恢復目標棋子100點生命值',
+    description: '直接回復目標棋子到滿血',
     cost: 2,
     duration: 0, // 即時
     restriction: '只能對己方棋子使用',
     type: 'priest_exclusive',
     requiredPieces: ['P'], // 需要牧師
     color: '#FFFFFF',
-    icon: '⛪',
+    icon: '✟',
     image: 'heal'
   },
   // 戰爭建築師專屬
   DEFENSIVE_WALL: {
     id: 'DEFENSIVE_WALL',
     name: '防禦牆',
-    description: '為己方棋子提供額外防禦力',
+    description: '在我方陣營創造一個300血的牆壁衍生物（無法移動）',
     cost: 4,
-    duration: 2,
-    restriction: '只能對己方棋子使用',
+    duration: 0, // 即時
+    restriction: '只能放置在我方陣營（第4-7行）',
     type: 'architect_exclusive',
     requiredPieces: ['WA'], // 需要戰爭建築師
     color: '#8B4513',
-    icon: '🏰',
+    icon: '🧱',
     image: 'wall'
+  },
+  // 基本卡 - 每個牌組都有的通用卡牌，不需要特定棋子
+  BATTLEFIELD_SUPPLY: {
+    id: 'BATTLEFIELD_SUPPLY',
+    name: '戰地補給',
+    description: '立即抽取2張牌（不超過手牌上限）',
+    cost: 2,
+    duration: 0, // 即時
+    restriction: '無',
+    type: 'basic', // 基本卡類型
+    requiredPieces: [], // 不需要特定棋子
+    color: '#32CD32',
+    icon: '📦',
+    image: 'supply'
+  },
+  // 皇家護衛專屬卡牌
+  CHARGE_ORDER: {
+    id: 'CHARGE_ORDER',
+    name: '衝鋒令',
+    description: '下一次移動多1格，攻擊力+50',
+    cost: 2,
+    duration: 1, // 持續1回合
+    restriction: '只能對己方皇家護衛或太刀武士使用',
+    type: 'soldier_samurai_shared',
+    requiredPieces: ['S', 'SM'], // 需要皇家護衛或太刀武士
+    color: '#FF4500',
+    icon: '📜',
+    image: 'charge_order'
+  },
+  HONOR_BLOOD: {
+    id: 'HONOR_BLOOD',
+    name: '榮譽之血',
+    description: '受傷時攻擊力+100',
+    cost: 3,
+    duration: 3, // 持續3回合
+    restriction: '只能對受傷的前排皇家護衛使用',
+    type: 'soldier_exclusive',
+    requiredPieces: ['S'], // 需要皇家護衛
+    color: '#DC143C',
+    icon: '🩸',
+    image: 'honor_blood'
+  },
+  // 太刀武士專屬卡牌
+  DRAW_SWORD_SLASH: {
+    id: 'DRAW_SWORD_SLASH',
+    name: '拔刀斬',
+    description: '攻擊力+100，回合結束時受到50傷害',
+    cost: 2,
+    duration: 1, // 持續1回合
+    restriction: '只能對己方太刀武士使用',
+    type: 'samurai_exclusive',
+    requiredPieces: ['SM'], // 需要太刀武士
+    color: '#FF8C00',
+    icon: '🗡️',
+    image: 'draw_sword_slash'
+  },
+  // 睏睏狗專屬卡牌
+  SLEEPY_AURA: {
+    id: 'SLEEPY_AURA',
+    name: '安眠氣息',
+    description: '睏睏狗為中心內敵人移動力-1格，持續1回合',
+    cost: 2,
+    duration: 1, // 持續1回合
+    restriction: '只能對己方睏睏狗使用',
+    type: 'sleepy_dog_exclusive',
+    requiredPieces: ['SD'], // 需要睏睏狗
+    color: '#9370DB',
+    icon: '😴',
+    image: 'sleepy_aura'
+  },
+  LOYAL_GUARDIAN: {
+    id: 'LOYAL_GUARDIAN',
+    name: '忠犬守護',
+    description: '替相鄰友軍承受50傷害',
+    cost: 1,
+    duration: 0, // 即時
+    restriction: '只能對己方睏睏狗使用',
+    type: 'sleepy_dog_exclusive',
+    requiredPieces: ['SD'], // 需要睏睏狗
+    color: '#8B4513',
+    icon: '🐾',
+    image: 'loyal_guardian'
+  },
+  // 騎士專屬卡牌
+  CHARGE_ASSAULT: {
+    id: 'CHARGE_ASSAULT',
+    name: '衝鋒突擊',
+    description: '直線移動距離增加一格，撞擊敵人造成50傷害，若被撞擊的棋子後面有棋子則多造成50傷害，若後面沒有棋子將對方棋子擊退一格',
+    cost: 3,
+    duration: 1, // 持續1回合
+    restriction: '只能對己方騎士使用',
+    type: 'knight_exclusive',
+    requiredPieces: ['K'], // 需要騎士
+    color: '#4169E1',
+    icon: '🐎',
+    image: 'charge_assault'
+  },
+  // 牧師專屬卡牌
+  GROUP_PRAYER: {
+    id: 'GROUP_PRAYER',
+    name: '群體祈禱',
+    description: '牧師為中心九宮格內所有友軍回復50HP',
+    cost: 2,
+    duration: 0, // 即時
+    restriction: '只能對己方牧師使用',
+    type: 'priest_group_exclusive',
+    requiredPieces: ['P'], // 需要牧師
+    color: '#FF69B4',
+    icon: '💖',
+    image: 'group_prayer'
+  },
+  // 螃蟹專屬卡牌
+  SHELL_DEFENSE: {
+    id: 'SHELL_DEFENSE',
+    name: '堅殼防禦',
+    description: '四回合內不會受到傷害，但效果期間內無法移動',
+    cost: 2,
+    duration: 4, // 持續4回合
+    restriction: '只能對己方螃蟹使用',
+    type: 'crab_exclusive',
+    requiredPieces: ['CC'], // 需要螃蟹
+    color: '#8B4513',
+    icon: '🪨',
+    image: 'shell_defense'
+  },
+  // 牧師專屬卡牌
+  GLORY_STRIKE: {
+    id: 'GLORY_STRIKE',
+    name: '光耀斬擊',
+    description: '攻擊敵人時驅散敵方增益並附帶50額外傷害',
+    cost: 2,
+    duration: 0, // 即時
+    restriction: '只能對己方牧師使用',
+    type: 'priest_exclusive',
+    requiredPieces: ['P'], // 需要牧師
+    color: '#FFD700',
+    icon: '✨',
+    image: 'glory_strike'
   }
 };
 

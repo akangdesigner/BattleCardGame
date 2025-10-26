@@ -72,11 +72,14 @@ const Piece3D = ({
   onPress, 
   onLongPress,
   row, 
-  col 
+  col,
+  pieceStates,
+  currentTurn
 }) => {
   const [scaleAnim] = useState(new Animated.Value(1));
   const [glowAnim] = useState(new Animated.Value(0));
   const [floatAnim] = useState(new Animated.Value(0));
+  const [burningAnim] = useState(new Animated.Value(1));
 
   // 選中時的動畫效果
   React.useEffect(() => {
@@ -140,6 +143,36 @@ const Piece3D = ({
       ]).start();
     }
   }, [isSelected]);
+
+  // 燃燒動畫效果
+  React.useEffect(() => {
+    const pieceKey = `${row}-${col}`;
+    const hasBurning = pieceStates && pieceStates[pieceKey] && 
+      pieceStates[pieceKey].debuffs && 
+      pieceStates[pieceKey].debuffs.some(debuff => 
+        debuff.type === 'burning' && debuff.endTurn > currentTurn
+      );
+
+    if (hasBurning) {
+      // 燃燒動畫：閃爍和搖擺效果
+      Animated.loop(
+        Animated.sequence([
+          Animated.timing(burningAnim, {
+            toValue: 1.2,
+            duration: 300,
+            useNativeDriver: true,
+          }),
+          Animated.timing(burningAnim, {
+            toValue: 0.8,
+            duration: 300,
+            useNativeDriver: true,
+          }),
+        ])
+      ).start();
+    } else {
+      burningAnim.setValue(1);
+    }
+  }, [pieceStates, currentTurn, row, col]);
 
   if (piece === 'empty') {
     return (
@@ -238,6 +271,85 @@ const Piece3D = ({
           {/* 高光效果 */}
           <View style={styles.pieceHighlight} />
         </View>
+        
+        {/* Debuffs效果 */}
+        {pieceStates && pieceStates[`${row}-${col}`] && pieceStates[`${row}-${col}`].debuffs && (
+          <View style={styles.debuffsContainer}>
+            {pieceStates[`${row}-${col}`].debuffs.map((debuff, index) => {
+              if (debuff.type === 'burning' && debuff.endTurn > currentTurn) {
+                return (
+                  <Animated.View 
+                    key={index} 
+                    style={[
+                      styles.burningEffect,
+                      {
+                        transform: [{ scale: burningAnim }]
+                      }
+                    ]}
+                  >
+                    <Text style={styles.burningIcon}>🔥</Text>
+                  </Animated.View>
+                );
+              }
+              return null;
+            })}
+          </View>
+        )}
+        
+        {/* Buffs效果 */}
+        {pieceStates && pieceStates[`${row}-${col}`] && pieceStates[`${row}-${col}`].buffs && (
+          <View style={styles.buffsContainer}>
+            {pieceStates[`${row}-${col}`].buffs.map((buff, index) => {
+              if (buff.type === 'burning_arrow' && buff.endTurn > currentTurn) {
+                return (
+                  <Animated.View 
+                    key={index} 
+                    style={[
+                      styles.burningArrowEffect,
+                      {
+                        transform: [{ scale: burningAnim }]
+                      }
+                    ]}
+                  >
+                    <Text style={styles.burningArrowIcon}>🔥</Text>
+                  </Animated.View>
+                );
+              }
+              if (buff.type === 'lightning_bolt' && buff.endTurn > currentTurn) {
+                return (
+                  <Animated.View 
+                    key={index} 
+                    style={[
+                      styles.lightningBoltEffect,
+                      {
+                        transform: [{ scale: burningAnim }]
+                      }
+                    ]}
+                  >
+                    <Text style={styles.lightningBoltIcon}>⚡</Text>
+                  </Animated.View>
+                );
+              }
+              return null;
+            })}
+          </View>
+        )}
+        
+        {/* 格子燃燒效果 */}
+        {pieceStates && pieceStates[`${row}-${col}`] && pieceStates[`${row}-${col}`].burningField && (
+          <View style={styles.fieldBurningContainer}>
+            <Animated.View 
+              style={[
+                styles.fieldBurningEffect,
+                {
+                  transform: [{ scale: burningAnim }]
+                }
+              ]}
+            >
+              <Text style={styles.fieldBurningIcon}>🔥</Text>
+            </Animated.View>
+          </View>
+        )}
       </Animated.View>
     </TouchableOpacity>
   );
@@ -319,6 +431,124 @@ const styles = StyleSheet.create({
     top: '15%',
     left: '15%',
     backgroundColor: 'rgba(255, 255, 255, 0.4)',
+  },
+  debuffsContainer: {
+    position: 'absolute',
+    top: -5,
+    right: -5,
+    flexDirection: 'row',
+    flexWrap: 'wrap',
+    zIndex: 10,
+  },
+  burningEffect: {
+    position: 'relative',
+    width: CELL_SIZE * 0.3,
+    height: CELL_SIZE * 0.3,
+    justifyContent: 'center',
+    alignItems: 'center',
+    backgroundColor: 'rgba(255, 69, 0, 0.8)',
+    borderRadius: CELL_SIZE * 0.15,
+    borderWidth: 1,
+    borderColor: '#FF4500',
+    shadowColor: '#FF4500',
+    shadowOffset: { width: 0, height: 0 },
+    shadowOpacity: 0.8,
+    shadowRadius: 4,
+    elevation: 5,
+  },
+  burningIcon: {
+    fontSize: CELL_SIZE * 0.15,
+    color: '#FFFFFF',
+    textShadowColor: 'rgba(0, 0, 0, 0.8)',
+    textShadowOffset: { width: 1, height: 1 },
+    textShadowRadius: 2,
+  },
+  fieldBurningContainer: {
+    position: 'absolute',
+    top: 0,
+    left: 0,
+    right: 0,
+    bottom: 0,
+    justifyContent: 'center',
+    alignItems: 'center',
+    zIndex: 5,
+  },
+  fieldBurningEffect: {
+    position: 'relative',
+    width: CELL_SIZE * 0.6,
+    height: CELL_SIZE * 0.6,
+    justifyContent: 'center',
+    alignItems: 'center',
+    backgroundColor: 'rgba(255, 69, 0, 0.3)',
+    borderRadius: CELL_SIZE * 0.3,
+    borderWidth: 2,
+    borderColor: '#FF4500',
+    shadowColor: '#FF4500',
+    shadowOffset: { width: 0, height: 0 },
+    shadowOpacity: 0.8,
+    shadowRadius: 8,
+    elevation: 10,
+  },
+  fieldBurningIcon: {
+    fontSize: CELL_SIZE * 0.3,
+    color: '#FFFFFF',
+    textShadowColor: 'rgba(0, 0, 0, 0.8)',
+    textShadowOffset: { width: 1, height: 1 },
+    textShadowRadius: 2,
+  },
+  buffsContainer: {
+    position: 'absolute',
+    top: -5,
+    left: -5,
+    flexDirection: 'row',
+    flexWrap: 'wrap',
+    zIndex: 10,
+  },
+  burningArrowEffect: {
+    position: 'relative',
+    width: CELL_SIZE * 0.25,
+    height: CELL_SIZE * 0.25,
+    justifyContent: 'center',
+    alignItems: 'center',
+    backgroundColor: 'rgba(255, 69, 0, 0.9)',
+    borderRadius: CELL_SIZE * 0.125,
+    borderWidth: 1,
+    borderColor: '#FF4500',
+    shadowColor: '#FF4500',
+    shadowOffset: { width: 0, height: 0 },
+    shadowOpacity: 0.8,
+    shadowRadius: 3,
+    elevation: 6,
+  },
+  burningArrowIcon: {
+    fontSize: CELL_SIZE * 0.12,
+    color: '#FFFFFF',
+    textShadowColor: 'rgba(0, 0, 0, 0.8)',
+    textShadowOffset: { width: 1, height: 1 },
+    textShadowRadius: 2,
+  },
+  lightningBoltEffect: {
+    position: 'relative',
+    width: CELL_SIZE * 0.25,
+    height: CELL_SIZE * 0.25,
+    justifyContent: 'center',
+    alignItems: 'center',
+    backgroundColor: 'rgba(155, 89, 182, 0.9)',
+    borderRadius: CELL_SIZE * 0.125,
+    borderWidth: 1,
+    borderColor: '#9B59B6',
+    shadowColor: '#9B59B6',
+    shadowOffset: { width: 0, height: 0 },
+    shadowOpacity: 0.8,
+    shadowRadius: 3,
+    elevation: 6,
+  },
+  lightningBoltIcon: {
+    fontSize: CELL_SIZE * 0.12,
+    color: '#FFFFFF',
+    textShadowColor: 'rgba(0, 0, 0, 0.8)',
+    textShadowOffset: { width: 1, height: 1 },
+    textShadowRadius: 2,
   },
 });
 

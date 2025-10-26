@@ -18,7 +18,7 @@ const { width: screenWidth, height: screenHeight } = Dimensions.get('window');
 
 // 可用棋子列表
 const AVAILABLE_PIECES = [
-  { id: 'S', name: '士兵', description: '基礎近戰單位' },
+  { id: 'S', name: '皇家護衛', description: '基礎近戰單位' },
   { id: 'A', name: '弓箭手', description: '遠程攻擊單位' },
   { id: 'M', name: '魔法師', description: '魔法攻擊單位' },
   { id: 'K', name: '騎士', description: '高機動性單位' },
