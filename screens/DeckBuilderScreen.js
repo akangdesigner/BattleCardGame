@@ -31,6 +31,10 @@ const AVAILABLE_PIECES = [
   { id: 'SD', name: '睏睏狗', description: '催眠控制單位' },
   { id: 'CC', name: '食人螃蟹', description: '兇猛近戰單位' },
   { id: 'CASTLE', name: '城堡', description: '不會動的防禦建築' },
+  { id: 'BR', name: '血誓魔徒', description: '擊殺後回復並增強' },
+  { id: 'BP', name: '影曜主教', description: '根據出生格決定形態（光/暗）' },
+  { id: 'RG', name: '蒼林遊狩者', description: '機動偵查與游擊' },
+  { id: 'DD', name: '龍爪舞者', description: '靈巧近戰決鬥者' },
 ];
 
 // 根據規則分類棋子
@@ -389,6 +393,7 @@ const DeckBuilderScreen = ({ onBack, onSaveDeck }) => {
                         isHighlighted={false}
                         currentHealth={undefined}
                         maxHealth={undefined}
+                        skillEffects={pieceId === 'BP' ? { bishopForm: 'eclipse' } : undefined}
                       />
                     </View>
                     <Text style={styles.previewPieceText}>
@@ -436,6 +441,7 @@ const DeckBuilderScreen = ({ onBack, onSaveDeck }) => {
                           isHighlighted={false}
                           currentHealth={undefined}
                           maxHealth={undefined}
+                        skillEffects={pieceId === 'BP' ? { bishopForm: 'eclipse' } : undefined}
                         />
                       </View>
                       <Text style={styles.previewPieceText}>
@@ -487,6 +493,7 @@ const DeckBuilderScreen = ({ onBack, onSaveDeck }) => {
                           isHighlighted={false}
                           currentHealth={undefined}
                           maxHealth={undefined}
+                        skillEffects={pieceId === 'BP' ? { bishopForm: 'eclipse' } : undefined}
                         />
                       </View>
                       <Text style={styles.previewPieceText}>
@@ -543,6 +550,7 @@ const DeckBuilderScreen = ({ onBack, onSaveDeck }) => {
                         isHighlighted={false}
                         currentHealth={undefined}
                         maxHealth={undefined}
+                        skillEffects={piece.id === 'BP' ? { bishopForm: 'eclipse' } : undefined}
                       />
                     </View>
                     <Text style={styles.pieceName}>{piece.name}</Text>
@@ -554,12 +562,12 @@ const DeckBuilderScreen = ({ onBack, onSaveDeck }) => {
             </View>
           </View>
 
-          {/* 特殊型和英雄型棋子選擇 (中後排) */}
+          {/* 特殊型棋子選擇 (中後排) */}
           <View style={styles.pieceCategorySection}>
-            <Text style={styles.sectionTitle}>特殊型和英雄型棋子 (中後排)</Text>
-            <Text style={styles.categorySubtitle}>選擇3個特殊型 + 1個英雄型棋子作為中後排</Text>
+            <Text style={styles.sectionTitle}>特殊型棋子 (中後排)</Text>
+            <Text style={styles.categorySubtitle}>選擇3個特殊型棋子作為中後排</Text>
             <View style={styles.pieceGrid}>
-              {[...SPECIAL_PIECES, ...HERO_PIECES].map((piece) => (
+              {SPECIAL_PIECES.map((piece) => (
                 <TouchableOpacity
                   key={piece.id}
                   style={[
@@ -580,16 +588,50 @@ const DeckBuilderScreen = ({ onBack, onSaveDeck }) => {
                         isHighlighted={false}
                         currentHealth={undefined}
                         maxHealth={undefined}
+                        skillEffects={piece.id === 'BP' ? { bishopForm: 'eclipse' } : undefined}
                       />
                     </View>
                     <Text style={styles.pieceName}>{piece.name}</Text>
                     <Text style={styles.pieceDescription}>{piece.description}</Text>
-                    <Text style={[
-                      styles.pieceCategory, 
-                      getPieceCategory(piece.id) === 'hero' ? styles.heroCategory : styles.specialCategory
-                    ]}>
-                      {getPieceCategory(piece.id) === 'hero' ? '英雄型' : '特殊型'}
-                    </Text>
+                    <Text style={[styles.pieceCategory, styles.specialCategory]}>特殊型</Text>
+                  </View>
+                </TouchableOpacity>
+              ))}
+            </View>
+          </View>
+
+          {/* 英雄型棋子選擇 (中後排) */}
+          <View style={styles.pieceCategorySection}>
+            <Text style={styles.sectionTitle}>英雄型棋子 (中後排)</Text>
+            <Text style={styles.categorySubtitle}>選擇1個英雄型棋子作為中後排</Text>
+            <View style={styles.pieceGrid}>
+              {HERO_PIECES.map((piece) => (
+                <TouchableOpacity
+                  key={piece.id}
+                  style={[
+                    styles.pieceCard,
+                    backRowPieces.includes(piece.id) && styles.selectedCard,
+                  ]}
+                  onPress={() => {
+                    setSelectedPiece(piece.id);
+                    toggleBackRowPiece(piece.id);
+                  }}
+                  activeOpacity={0.8}
+                >
+                  <View style={styles.pieceCardContent}>
+                    <View style={styles.pieceDisplay}>
+                      <PieceManager 
+                        piece={piece.id} 
+                        isSelected={false} 
+                        isHighlighted={false}
+                        currentHealth={undefined}
+                        maxHealth={undefined}
+                        skillEffects={piece.id === 'BP' ? { bishopForm: 'eclipse' } : undefined}
+                      />
+                    </View>
+                    <Text style={styles.pieceName}>{piece.name}</Text>
+                    <Text style={styles.pieceDescription}>{piece.description}</Text>
+                    <Text style={[styles.pieceCategory, styles.heroCategory]}>英雄型</Text>
                   </View>
                 </TouchableOpacity>
               ))}
@@ -702,6 +744,7 @@ const DeckBuilderScreen = ({ onBack, onSaveDeck }) => {
                                       isHighlighted={false}
                                       currentHealth={undefined}
                                       maxHealth={undefined}
+                                      skillEffects={pieceId === 'BP' ? { bishopForm: 'eclipse' } : undefined}
                                     />
                                   </View>
                                   <Text style={styles.deckPieceName}>
@@ -733,6 +776,7 @@ const DeckBuilderScreen = ({ onBack, onSaveDeck }) => {
                                       isHighlighted={false}
                                       currentHealth={undefined}
                                       maxHealth={undefined}
+                                      skillEffects={pieceId === 'BP' ? { bishopForm: 'eclipse' } : undefined}
                                     />
                                   </View>
                                   <Text style={styles.deckPieceName}>

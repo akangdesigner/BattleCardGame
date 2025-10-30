@@ -24,6 +24,7 @@ const { width: screenWidth } = Dimensions.get('window');
 // samurai_exclusive: 太刀武士專屬卡 - 需要太刀武士
 // sleepy_dog_exclusive: 睏睏狗專屬卡 - 需要睏睏狗
 // knight_exclusive: 騎士專屬卡 - 需要騎士
+// bishop_exclusive: 影耀雙主教專屬卡 - 需要影耀雙主教
 
 // 技能卡牌類型定義
 export const SKILL_CARDS = {
@@ -58,12 +59,12 @@ export const SKILL_CARDS = {
   BURNING_ARROW: {
     id: 'BURNING_ARROW',
     name: '燃燒箭',
-    description: '射手攻擊時，燃燒箭會轉移到被攻擊的格子上，該格子的棋子每回合扣50血量',
+    description: '射手攻擊時，燃燒效果會轉移到被攻擊的棋子上，該棋子每回合扣25血量，持續4回合',
     cost: 3,
     duration: 1, // 修改為1回合
     restriction: '射程與普通攻擊一致',
     type: 'ranged_exclusive',
-    requiredPieces: ['A'], // 需要弓箭手
+    requiredPieces: ['A', 'CB'], // 需要弓箭手或弩手
     color: '#FF4500',
     icon: '🔥',
     image: 'burning_arrow'
@@ -108,6 +109,19 @@ export const SKILL_CARDS = {
     color: '#2C2C2C',
     icon: '👤',
     image: 'shadow'
+  },
+  SWIFT_SHADOW: {
+    id: 'SWIFT_SHADOW',
+    name: '疾行遁影',
+    description: '移動距離+2格，持續1回合',
+    cost: 2,
+    duration: 1,
+    restriction: '只能對己方刺客使用',
+    type: 'assassin_exclusive',
+    requiredPieces: ['AS'], // 需要刺客
+    color: '#4A4A4A',
+    icon: '💨',
+    image: 'swift_shadow'
   },
   // 心靈控制者專屬
   DEATH_CURSE: {
@@ -165,6 +179,19 @@ export const SKILL_CARDS = {
     icon: '📦',
     image: 'supply'
   },
+  TACTICS_B: {
+    id: 'TACTICS_B',
+    name: 'B戰術',
+    description: '把現有手牌洗進牌堆，重新抽取等量的牌',
+    cost: 1,
+    duration: 0, // 即時
+    restriction: '無',
+    type: 'basic', // 基本卡類型
+    requiredPieces: [], // 不需要特定棋子
+    color: '#4169E1',
+    icon: '🔄',
+    image: 'tactics_b'
+  },
   // 皇家護衛專屬卡牌
   CHARGE_ORDER: {
     id: 'CHARGE_ORDER',
@@ -193,10 +220,23 @@ export const SKILL_CARDS = {
     image: 'honor_blood'
   },
   // 太刀武士專屬卡牌
-  DRAW_SWORD_SLASH: {
-    id: 'DRAW_SWORD_SLASH',
-    name: '拔刀斬',
-    description: '攻擊力+100，回合結束時受到50傷害',
+  DRAW_SWORD_LEFT: {
+    id: 'DRAW_SWORD_LEFT',
+    name: '拔刀斬.左',
+    description: '攻擊力+200，當回合只能攻擊左前方，回合結束時受到50傷害',
+    cost: 2,
+    duration: 1, // 持續1回合
+    restriction: '只能對己方太刀武士使用',
+    type: 'samurai_exclusive',
+    requiredPieces: ['SM'], // 需要太刀武士
+    color: '#FF8C00',
+    icon: '🔪',
+    image: 'draw_sword_left'
+  },
+  DRAW_SWORD_CENTER: {
+    id: 'DRAW_SWORD_CENTER',
+    name: '拔刀斬.中',
+    description: '攻擊力+200，當回合只能攻擊正前方，回合結束時受到50傷害',
     cost: 2,
     duration: 1, // 持續1回合
     restriction: '只能對己方太刀武士使用',
@@ -204,7 +244,20 @@ export const SKILL_CARDS = {
     requiredPieces: ['SM'], // 需要太刀武士
     color: '#FF8C00',
     icon: '🗡️',
-    image: 'draw_sword_slash'
+    image: 'draw_sword_center'
+  },
+  DRAW_SWORD_RIGHT: {
+    id: 'DRAW_SWORD_RIGHT',
+    name: '拔刀斬.右',
+    description: '攻擊力+200，當回合只能攻擊右前方，回合結束時受到50傷害',
+    cost: 2,
+    duration: 1, // 持續1回合
+    restriction: '只能對己方太刀武士使用',
+    type: 'samurai_exclusive',
+    requiredPieces: ['SM'], // 需要太刀武士
+    color: '#FF8C00',
+    icon: '⚔️',
+    image: 'draw_sword_right'
   },
   // 睏睏狗專屬卡牌
   SLEEPY_AURA: {
@@ -288,6 +341,78 @@ export const SKILL_CARDS = {
     color: '#FFD700',
     icon: '✨',
     image: 'glory_strike'
+  },
+  // 弩手專屬卡牌
+  CRUSHING_ARMOR: {
+    id: 'CRUSHING_ARMOR',
+    name: '沉痛破甲',
+    description: '攻擊基礎型卡牌造成150傷害，攻擊一般卡牌造成100傷害',
+    cost: 2,
+    duration: 2, // 持續2回合
+    restriction: '只能對己方弩手使用',
+    type: 'crossbowman_exclusive',
+    requiredPieces: ['CB'], // 需要弩手
+    color: '#8B4513',
+    icon: '💥',
+    image: 'crushing_armor'
+  },
+  // 影耀雙主教專屬卡牌（陰影主教）
+  ECLIPSE_DESCENT: {
+    id: 'ECLIPSE_DESCENT',
+    name: '月蝕降臨',
+    description: '攻擊力+50，本回合可以直走兩格',
+    cost: 2,
+    duration: 1, // 持續1回合
+    restriction: '只能對己方陰影主教使用',
+    type: 'bishop_exclusive',
+    requiredPieces: ['BP'], // 需要影耀雙主教
+    requiredForm: 'shadow', // 需要陰影形態
+    color: '#2C2C2C',
+    icon: '🌑',
+    image: 'eclipse_descent'
+  },
+  BLACK_RITUAL: {
+    id: 'BLACK_RITUAL',
+    name: '黑聖禮',
+    description: '犧牲自身50血，對左前和右前方造成100傷害',
+    cost: 3,
+    duration: 0, // 即時
+    restriction: '只能對己方陰影主教使用',
+    type: 'bishop_exclusive',
+    requiredPieces: ['BP'], // 需要影耀雙主教
+    requiredForm: 'shadow', // 需要陰影形態
+    color: '#4A4A4A',
+    icon: '💀',
+    image: 'black_ritual'
+  },
+  // 影耀雙主教專屬卡牌（光耀主教）
+  REVELATION_GUARD: {
+    id: 'REVELATION_GUARD',
+    name: '天啟護陣',
+    description: '建立光之結界捆綁左前方和右前方的敵方棋子（無法移動1回合）',
+    cost: 3,
+    duration: 1, // 持續1回合
+    restriction: '只能對己方光耀主教使用',
+    type: 'bishop_exclusive',
+    requiredPieces: ['BP'], // 需要影耀雙主教
+    requiredForm: 'radiant', // 需要光耀形態
+    color: '#FFD700',
+    icon: '☀️',
+    image: 'revelation_guard'
+  },
+  JUDGMENT_SPEAR: {
+    id: 'JUDGMENT_SPEAR',
+    name: '審判之矛',
+    description: '直線攻擊前方一格敵人150聖光傷害',
+    cost: 3,
+    duration: 0, // 即時
+    restriction: '只能對己方光耀主教使用',
+    type: 'bishop_exclusive',
+    requiredPieces: ['BP'], // 需要影耀雙主教
+    requiredForm: 'radiant', // 需要光耀形態
+    color: '#FFA500',
+    icon: '⚡',
+    image: 'judgment_spear'
   }
 };
 
@@ -498,7 +623,8 @@ export const CardSystem = ({
   currentPlayer, // 新增：當前玩家
   aiPlayedCard, // 新增：AI出的牌
   showAiPlayedCard, // 新增：是否顯示AI出牌動畫
-  actionPoints // 新增：行動點
+  actionPoints, // 新增：行動點
+  onSwapCards // 新增：換牌功能
 }) => {
   // 拖曳狀態
   const [draggingCard, setDraggingCard] = useState(null);
@@ -544,9 +670,9 @@ export const CardSystem = ({
   
   // 選中卡片函數（用於查看卡片）
   const selectCard = (card) => {
-    // 直接調用父組件的選中邏輯
+    // 只選中查看，不消耗行動點
     if (onPlayCard) {
-      onPlayCard(card);
+      onPlayCard(card, false); // false 表示只是查看
     }
   };
 
@@ -558,15 +684,17 @@ export const CardSystem = ({
       return;
     }
     
+    // 立即調用父組件的出牌邏輯，傳入 true 表示真正出牌
+    // 這樣可以立即設置選擇目標狀態並顯示句子
+    onPlayCard(card, true);
+    
     // 顯示打出牌的動畫
     setPlayedCard(card);
     setShowPlayedCard(true);
     
-    // 1秒後隱藏動畫並執行出牌邏輯
+    // 1秒後隱藏動畫
     setTimeout(() => {
       setShowPlayedCard(false);
-      // 調用父組件的出牌邏輯
-      onPlayCard(card);
       // 移除手牌（在動畫完成後）
       if (onRemoveCard) {
         onRemoveCard(card);
@@ -654,13 +782,28 @@ export const CardSystem = ({
 
         {/* 結束回合按鈕 - 只在玩家回合顯示 */}
         {currentPlayer === 'human' && (
-          <TouchableOpacity 
-            style={styles.endTurnButton}
-            onPress={onEndTurn}
-            activeOpacity={0.8}
-          >
-            <Text style={styles.endTurnButtonText}>結束回合</Text>
-          </TouchableOpacity>
+          <View style={styles.bottomButtonsContainer}>
+            <TouchableOpacity 
+              style={styles.swapCardsButton}
+              onPress={() => {
+                // 測試用換牌功能
+                if (onSwapCards) {
+                  onSwapCards();
+                }
+              }}
+              activeOpacity={0.8}
+            >
+              <Text style={styles.swapCardsButtonText}>🔄 換牌</Text>
+            </TouchableOpacity>
+            
+            <TouchableOpacity 
+              style={styles.endTurnButton}
+              onPress={onEndTurn}
+              activeOpacity={0.8}
+            >
+              <Text style={styles.endTurnButtonText}>結束回合</Text>
+            </TouchableOpacity>
+          </View>
         )}
       </View>
       
@@ -1007,12 +1150,41 @@ const styles = StyleSheet.create({
     textShadowOffset: { width: 1, height: 1 },
     textShadowRadius: 3,
   },
-  // 結束回合按鈕樣式
-  endTurnButton: {
+  // 底部按鈕容器樣式
+  bottomButtonsContainer: {
     position: 'absolute',
     bottom: 10,
     left: '50%',
-    transform: [{ translateX: -60 }], // 居中對齊
+    transform: [{ translateX: -100 }], // 調整位置以容納兩個按鈕
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 10,
+  },
+  // 換牌按鈕樣式
+  swapCardsButton: {
+    backgroundColor: '#4169E1',
+    paddingHorizontal: 16,
+    paddingVertical: 12,
+    borderRadius: 25,
+    shadowColor: '#000',
+    shadowOffset: {
+      width: 0,
+      height: 4,
+    },
+    shadowOpacity: 0.3,
+    shadowRadius: 8,
+    elevation: 8,
+    borderWidth: 2,
+    borderColor: '#1E90FF',
+  },
+  swapCardsButtonText: {
+    color: '#FFFFFF',
+    fontSize: 14,
+    fontWeight: 'bold',
+    textAlign: 'center',
+  },
+  // 結束回合按鈕樣式
+  endTurnButton: {
     backgroundColor: '#E74C3C',
     paddingHorizontal: 20,
     paddingVertical: 12,

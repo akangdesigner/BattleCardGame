@@ -28,6 +28,10 @@ export const PIECE_TYPES = {
   SD: 'SD', // 睏睏狗
   CC: 'CC', // 食人螃蟹
   CASTLE: 'CASTLE', // 中古城堡
+  BR: 'BR', // 血誓魔徒
+  RG: 'RG', // 遊俠
+  DD: 'DD', // 龍爪舞者
+  BP: 'BP', // 影耀雙主教
   EMPTY: 'empty'
 };
 
@@ -108,7 +112,44 @@ export const PIECE_RULES = {
     specialRules: {
       highMobility: true, // 高機動性
       canMoveThroughPieces: false, // 不能穿過其他棋子
-      canMoveThroughAllies: true // 可以穿過己方小兵
+      canMoveThroughAllies: false // 不能跨過我方棋子
+    }
+  },
+
+  // 蒼林遊狩者（Warden Ranger）
+  [PIECE_TYPES.RG]: {
+    name: '蒼林遊狩者',
+    moveRange: 3,
+    moveDirections: [DIRECTIONS.UP, DIRECTIONS.DOWN, DIRECTIONS.LEFT, DIRECTIONS.RIGHT],
+    attackRange: 2,
+    attackDistance: 2,
+    attackDirections: [DIRECTIONS.UP, DIRECTIONS.DOWN, DIRECTIONS.LEFT, DIRECTIONS.RIGHT],
+    attackPower: 50,
+    maxHealth: 100,
+    health: 100,
+    attackType: 'ranged',
+    category: 'special',
+    specialRules: {
+      canAttackOverPieces: true,
+      canMoveThroughAllies: true
+    }
+  },
+
+  // 龍爪舞者（Dragonclaw Duelist）
+  [PIECE_TYPES.DD]: {
+    name: '龍爪舞者',
+    moveRange: 3,
+    moveDirections: [DIRECTIONS.UP, DIRECTIONS.DOWN, DIRECTIONS.LEFT, DIRECTIONS.RIGHT],
+    attackRange: 1,
+    attackDistance: 1,
+    attackDirections: [DIRECTIONS.UP, DIRECTIONS.DOWN, DIRECTIONS.LEFT, DIRECTIONS.RIGHT],
+    attackPower: 50,
+    maxHealth: 100,
+    health: 100,
+    attackType: 'melee',
+    category: 'basic',
+    specialRules: {
+      agileDuelist: true
     }
   },
 
@@ -175,8 +216,8 @@ export const PIECE_RULES = {
     name: '弩手',
     moveRange: 1, // 移動範圍：1格
     moveDirections: [DIRECTIONS.UP, DIRECTIONS.DOWN, DIRECTIONS.LEFT, DIRECTIONS.RIGHT],
-    attackRange: 3, // 攻擊範圍：3格
-    attackDistance: 3, // 攻擊距離：3格
+    attackRange: 4, // 攻擊範圍：4格
+    attackDistance: 4, // 攻擊距離：4格
     attackDirections: [DIRECTIONS.UP, DIRECTIONS.DOWN, DIRECTIONS.LEFT, DIRECTIONS.RIGHT],
     attackPower: 50, // 攻擊力：50
     maxHealth: 100, // 最大血量：100（遠程）
@@ -187,7 +228,9 @@ export const PIECE_RULES = {
       cannotAttackAdjacent: true, // 不能攻擊相鄰的敵人
       canAttackOverPieces: true, // 可以越過棋子攻擊
       longRange: true, // 遠程攻擊
-      canMoveThroughAllies: true // 可以穿過己方棋子
+      canMoveThroughAllies: true, // 可以穿過己方棋子
+      requiresAllyInFront: true, // 需要前方有我方棋子才能攻擊
+      minAttackDistance: 3 // 最小攻擊距離：3格（距離1~2格不能攻擊）
     }
   },
 
@@ -195,9 +238,9 @@ export const PIECE_RULES = {
     name: '太刀武士',
     moveRange: 2, // 移動範圍：2格
     moveDirections: [DIRECTIONS.UP, DIRECTIONS.DOWN, DIRECTIONS.LEFT, DIRECTIONS.RIGHT],
-    attackRange: 2, // 攻擊範圍：2格
-    attackDistance: 2, // 攻擊距離：2格
-    attackDirections: [DIRECTIONS.UP, DIRECTIONS.DOWN, DIRECTIONS.LEFT, DIRECTIONS.RIGHT],
+    attackRange: 1, // 攻擊範圍：前方1格
+    attackDistance: 1, // 攻擊距離：1格
+    attackDirections: [DIRECTIONS.UP], // 只能往前打
     attackPower: 50, // 攻擊力：50
     maxHealth: 200, // 最大血量：200（近戰）
     health: 200, // 當前血量：200
@@ -206,7 +249,9 @@ export const PIECE_RULES = {
     specialRules: {
       highAttack: true, // 高攻擊力
       canAttackOverPieces: false, // 不能越過棋子攻擊
-      skilledWarrior: true // 熟練戰士
+      skilledWarrior: true, // 熟練戰士
+      forwardAttackOnly: true, // 只能往前攻擊
+      horizontalAttack: true // 前方1格可以攻擊左、中、右3個位置
     }
   },
 
@@ -287,6 +332,44 @@ export const PIECE_RULES = {
       canAttackOverPieces: true, // 可以越過棋子攻擊
       multiCell: true, // 佔據多個格子
       occupiesTwoCells: true // 佔據兩個格子
+    }
+  },
+
+  [PIECE_TYPES.BR]: {
+    name: '血誓魔徒',
+    moveRange: 2, // 移動範圍：2格
+    moveDirections: [DIRECTIONS.UP, DIRECTIONS.DOWN, DIRECTIONS.LEFT, DIRECTIONS.RIGHT],
+    attackRange: 1, // 攻擊範圍：1格
+    attackDistance: 1, // 攻擊距離：1格
+    attackDirections: [DIRECTIONS.UP, DIRECTIONS.DOWN, DIRECTIONS.LEFT, DIRECTIONS.RIGHT],
+    attackPower: 50, // 攻擊力：50
+    maxHealth: 200, // 最大血量：200
+    health: 200, // 當前血量：200
+    attackType: 'melee', // 攻擊類型：近戰
+    category: 'special', // 分類：特殊型
+    specialRules: {
+      bloodlust: true, // 血性咆哮：擊殺後回復50血並可再移動1格
+      combatInstinct: true // 嗜戰本能：擊殺後移動距離變為3格
+    }
+  },
+
+  [PIECE_TYPES.BP]: {
+    name: '影耀雙主教',
+    moveRange: 2, // 移動範圍：2格（斜向）
+    moveDirections: [DIRECTIONS.UP_LEFT, DIRECTIONS.UP_RIGHT, DIRECTIONS.DOWN_LEFT, DIRECTIONS.DOWN_RIGHT], // 只能斜向移動
+    attackRange: 1, // 攻擊範圍：1格
+    attackDistance: 1, // 攻擊距離：1格
+    attackDirections: [DIRECTIONS.UP, DIRECTIONS.DOWN, DIRECTIONS.LEFT, DIRECTIONS.RIGHT, DIRECTIONS.UP_LEFT, DIRECTIONS.UP_RIGHT, DIRECTIONS.DOWN_LEFT, DIRECTIONS.DOWN_RIGHT], // 可以攻擊所有方向
+    attackPower: 50, // 攻擊力：50
+    maxHealth: 150, // 最大血量：150
+    health: 150, // 當前血量：150
+    attackType: 'melee', // 攻擊類型：近戰
+    category: 'special', // 分類：特殊型
+    specialRules: {
+      dualForm: true, // 雙形態：根據出生格顏色決定形態
+      diagonalMovement: true, // 斜向移動
+      shadowForm: false, // 陰影形態（黑格），false表示光耀形態（白格）
+      // 形態將在初始化時根據格子顏色設置
     }
   }
 };
@@ -403,6 +486,30 @@ export const getPossibleMoves = (pieceType, fromRow, fromCol, board, pieceOwners
         // 衝鋒突擊：直線移動距離+1
         moveRange += chargeAssaultBuff.moveBonus || 1;
       }
+      
+      // 檢查疾行遁影buff效果
+      const swiftShadowBuff = pieceState.buffs.find(buff => buff.type === 'swift_shadow');
+      if (swiftShadowBuff) {
+        // 疾行遁影：移動距離+2
+        moveRange += swiftShadowBuff.moveBonus || 2;
+      }
+      
+      // 檢查嗜戰本能buff效果（血誓魔徒擊殺後）
+      const combatInstinctBuff = pieceState.buffs.find(buff => buff.type === 'combat_instinct');
+      if (combatInstinctBuff) {
+        // 嗜戰本能：移動距離+1（從2變成3）
+        moveRange += combatInstinctBuff.moveBonus || 1;
+        console.log(`嗜戰本能效果：血誓魔徒移動距離+1，當前移動距離: ${moveRange}`);
+      }
+      
+      // 檢查月蝕降臨buff效果（陰影主教）
+      const eclipseBuff = pieceState.buffs.find(buff => 
+        buff.type === 'eclipse_descent' && buff.endTurn > currentTurn
+      );
+      if (eclipseBuff && eclipseBuff.straightMoveBonus) {
+        // 月蝕降臨：可以直走兩格（添加直線移動選項）
+        // 這個會在下面的移動處理中特殊處理
+      }
     }
   }
   
@@ -418,6 +525,15 @@ export const getPossibleMoves = (pieceType, fromRow, fromCol, board, pieceOwners
         moveRange = Math.max(1, moveRange - 1);
         console.log(`安眠氣息效果：棋子[${fromRow},${fromCol}] 移動距離從 ${originalRange} 減少到 ${moveRange}`);
       }
+      
+      // 檢查光之結界debuff效果（天啟護陣）
+      const lightBindingDebuff = pieceState.debuffs.find(debuff => 
+        debuff.type === 'light_binding' && debuff.cannotMove && debuff.endTurn > currentTurn
+      );
+      if (lightBindingDebuff) {
+        console.log(`光之結界：棋子[${fromRow},${fromCol}] 無法移動`);
+        return []; // 返回空數組，表示無法移動
+      }
     }
   }
   
@@ -427,7 +543,31 @@ export const getPossibleMoves = (pieceType, fromRow, fromCol, board, pieceOwners
     // 在下面的循環中處理
   }
   
-  moveDirections.forEach(([dRow, dCol]) => {
+  // 檢查月蝕降臨buff，如果有則添加直線移動方向
+  let extendedMoveDirections = [...moveDirections];
+  if (pieceStates) {
+    const pieceKey = `${fromRow}-${fromCol}`;
+    const pieceState = pieceStates[pieceKey];
+    if (pieceState && pieceState.buffs) {
+      const eclipseBuff = pieceState.buffs.find(buff => 
+        buff.type === 'eclipse_descent' && buff.endTurn > currentTurn && buff.straightMoveBonus
+      );
+      if (eclipseBuff) {
+        // 月蝕降臨：添加直線方向（上下左右）可以走2格
+        const straightDirections = [DIRECTIONS.UP, DIRECTIONS.DOWN, DIRECTIONS.LEFT, DIRECTIONS.RIGHT];
+        // 檢查是否已經包含這些方向，如果沒有則添加
+        straightDirections.forEach(dir => {
+          if (!extendedMoveDirections.some(([r, c]) => r === dir[0] && c === dir[1])) {
+            extendedMoveDirections.push(dir);
+          }
+        });
+        // 直線移動範圍設為2格
+        moveRange = Math.max(moveRange, eclipseBuff.straightMoveBonus);
+      }
+    }
+  }
+  
+  extendedMoveDirections.forEach(([dRow, dCol]) => {
     // 根據螃蟹的特殊移動規則調整移動範圍
     let currentMoveRange = moveRange;
     if (pieceType === PIECE_TYPES.CC && specialRules.crabMovement) {
@@ -438,6 +578,24 @@ export const getPossibleMoves = (pieceType, fromRow, fromCol, board, pieceOwners
       } else {
         // 直向移動（上下）
         currentMoveRange = 1;
+      }
+    }
+    
+    // 如果是月蝕降臨的直線移動，限制為2格
+    if (pieceStates) {
+      const pieceKey = `${fromRow}-${fromCol}`;
+      const pieceState = pieceStates[pieceKey];
+      if (pieceState && pieceState.buffs) {
+        const eclipseBuff = pieceState.buffs.find(buff => 
+          buff.type === 'eclipse_descent' && buff.endTurn > currentTurn && buff.straightMoveBonus
+        );
+        if (eclipseBuff) {
+          // 檢查是否為直線方向（上下左右）
+          const isStraightDirection = (dRow === 0 && dCol !== 0) || (dRow !== 0 && dCol === 0);
+          if (isStraightDirection) {
+            currentMoveRange = Math.min(currentMoveRange, eclipseBuff.straightMoveBonus);
+          }
+        }
       }
     }
     
@@ -474,12 +632,81 @@ export const getPossibleMoves = (pieceType, fromRow, fromCol, board, pieceOwners
 };
 
 // 獲取棋子的所有可能攻擊位置
-export const getPossibleAttacks = (pieceType, fromRow, fromCol, board, pieceOwners, currentPlayer, pieceStates = null) => {
+export const getPossibleAttacks = (pieceType, fromRow, fromCol, board, pieceOwners, currentPlayer, pieceStates = null, currentTurn = 0) => {
   const attacks = [];
   const attackRange = getPieceAttackRange(pieceType);
   const attackDirections = getPieceAttackDirections(pieceType);
   const specialRules = getPieceSpecialRules(pieceType);
   const boardSize = board.length;
+  
+  // 特殊處理太刀武士的橫向攻擊
+  if (pieceType === PIECE_TYPES.SM && specialRules.horizontalAttack) {
+    // 太刀武士：前方1格可以攻擊左、中、右3個位置
+    const frontRow = fromRow - 1; // 前方1格
+    const positions = [
+      { row: frontRow, col: fromCol - 1 }, // 左
+      { row: frontRow, col: fromCol },     // 中
+      { row: frontRow, col: fromCol + 1 }  // 右
+    ];
+    
+    // 檢查是否有拔刀斬buff限制攻擊方向
+    const pieceKey = `${fromRow}-${fromCol}`;
+    let allowedPositions = positions;
+    
+    if (pieceStates) {
+      const pieceState = pieceStates[pieceKey];
+      if (pieceState && pieceState.buffs) {
+        const drawSwordBuff = pieceState.buffs.find(buff => 
+          (buff.type === 'draw_sword_left' || buff.type === 'draw_sword_center' || buff.type === 'draw_sword_right') && 
+          buff.endTurn > currentTurn
+        );
+        
+        if (drawSwordBuff) {
+          // 根據拔刀斬類型限制攻擊方向
+          if (drawSwordBuff.type === 'draw_sword_left') {
+            allowedPositions = [{ row: frontRow, col: fromCol - 1 }]; // 只能攻擊左前方
+          } else if (drawSwordBuff.type === 'draw_sword_center') {
+            allowedPositions = [{ row: frontRow, col: fromCol }]; // 只能攻擊正前方
+          } else if (drawSwordBuff.type === 'draw_sword_right') {
+            allowedPositions = [{ row: frontRow, col: fromCol + 1 }]; // 只能攻擊右前方
+          }
+        }
+      }
+    }
+    
+    allowedPositions.forEach(({ row, col }) => {
+      if (isValidPosition(row, col, boardSize)) {
+        const targetPiece = board[row][col];
+        
+        if (targetPiece !== PIECE_TYPES.EMPTY) {
+          const targetPieceKey = `${row}-${col}`;
+          const targetOwner = pieceOwners[targetPieceKey];
+          
+          // 只對敵方棋子顯示攻擊提示
+          if (targetOwner && targetOwner !== currentPlayer) {
+            // 檢查目標是否有隱身狀態（暗影披風效果）
+            if (pieceStates) {
+              const targetState = pieceStates[targetPieceKey];
+              if (targetState && targetState.buffs) {
+                const shadowCloakBuff = targetState.buffs.find(buff => 
+                  buff.type === 'shadow_cloak' && buff.endTurn > currentTurn
+                );
+                
+                if (shadowCloakBuff) {
+                  console.log(`跳過隱身目標: [${row},${col}] 敵方棋子 ${targetPiece} 處於隱身狀態`);
+                  return; // 跳過隱身的棋子
+                }
+              }
+            }
+            
+            attacks.push({ row: row, col: col, type: 'attack' });
+          }
+        }
+      }
+    });
+    
+    return attacks;
+  }
   
   attackDirections.forEach(([dRow, dCol]) => {
     for (let distance = 1; distance <= attackRange; distance++) {
@@ -515,14 +742,22 @@ export const getPossibleAttacks = (pieceType, fromRow, fromCol, board, pieceOwne
           
           console.log(`攻擊目標: [${newRow},${newCol}] 敵方棋子 ${targetPiece}`);
           // 檢查特殊規則
+          
+          // 弩手不能攻擊相鄰敵人
+          if (specialRules.cannotAttackAdjacent && distance === 1) {
+            continue;
+          }
+          
+          // 檢查最小攻擊距離（弩手不能攻擊距離1~2格的敵人）
+          if (specialRules.minAttackDistance && distance < specialRules.minAttackDistance) {
+            continue;
+          }
+          
+          // 弩手和弓箭手需要前方有己方棋子
           if (specialRules.requiresAllyInFront) {
-            // 弓箭手需要前方有己方棋子
             if (hasAllyInFront(fromRow, fromCol, newRow, newCol, board, pieceOwners, currentPlayer)) {
               attacks.push({ row: newRow, col: newCol, type: 'attack' });
             }
-          } else if (specialRules.cannotAttackAdjacent && distance === 1) {
-            // 弩手不能攻擊相鄰敵人
-            continue;
           } else {
             // 普通攻擊
             attacks.push({ row: newRow, col: newCol, type: 'attack' });
@@ -579,8 +814,8 @@ export const isValidMove = (pieceType, fromRow, fromCol, toRow, toCol, board, pi
 };
 
 // 檢查攻擊是否合法
-export const isValidAttack = (pieceType, fromRow, fromCol, toRow, toCol, board, pieceOwners, currentPlayer, pieceStates = null) => {
-  const possibleAttacks = getPossibleAttacks(pieceType, fromRow, fromCol, board, pieceOwners, currentPlayer, pieceStates);
+export const isValidAttack = (pieceType, fromRow, fromCol, toRow, toCol, board, pieceOwners, currentPlayer, pieceStates = null, currentTurn = 0) => {
+  const possibleAttacks = getPossibleAttacks(pieceType, fromRow, fromCol, board, pieceOwners, currentPlayer, pieceStates, currentTurn);
   const isValid = possibleAttacks.some(attack => attack.row === toRow && attack.col === toCol);
   console.log(`isValidAttack: [${fromRow},${fromCol}] -> [${toRow},${toCol}] = ${isValid}, possibleAttacks count: ${possibleAttacks.length}`);
   return isValid;

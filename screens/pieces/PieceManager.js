@@ -12,6 +12,10 @@ import WarArchitectPiece from './WarArchitectPiece';
 import SleepyDogPiece from './SleepyDogPiece';
 import CarnivorousCrabPiece from './CarnivorousCrabPiece';
 import CastlePiece from './CastlePiece';
+import BerserkerPiece from './BerserkerPiece';
+import BishopPiece from './BishopPiece';
+import RangerPiece from './RangerPiece';
+import DragonclawDuelistPiece from './DragonclawDuelistPiece';
 import { getPieceMaxHealth, getPieceHealth, getPieceAttackType } from '../pieceRules';
 
 const { width: screenWidth } = Dimensions.get('window');
@@ -177,6 +181,16 @@ const PieceManager = ({ piece, isSelected, isHighlighted, isSkillTarget, current
         return <CarnivorousCrabPiece isSelected={isSelected} isHighlighted={isHighlighted} isSkillTarget={isSkillTarget} />;
       case 'CASTLE': // 中古城堡
         return <CastlePiece isSelected={isSelected} isHighlighted={isHighlighted} isSkillTarget={isSkillTarget} />;
+      case 'BR': // 血誓魔徒
+        return <BerserkerPiece isSelected={isSelected} isHighlighted={isHighlighted} isSkillTarget={isSkillTarget} />;
+      case 'RG': // 蒼林遊狩者
+        return <RangerPiece isSelected={isSelected} isHighlighted={isHighlighted} isSkillTarget={isSkillTarget} />;
+      case 'DD': // 龍爪舞者
+        return <DragonclawDuelistPiece isSelected={isSelected} isHighlighted={isHighlighted} isSkillTarget={isSkillTarget} />;
+      case 'BP': // 影耀雙主教
+        // 從skillEffects中獲取形態信息（如果有的話）
+        const bishopForm = skillEffects?.bishopForm || 'radiant'; // 默認光耀形態
+        return <BishopPiece isSelected={isSelected} isHighlighted={isHighlighted} isSkillTarget={isSkillTarget} bishopForm={bishopForm} />;
       case 'WALL': // 防禦牆
         return <WallPiece isSelected={isSelected} isHighlighted={isHighlighted} isSkillTarget={isSkillTarget} currentTurn={currentTurn} pieceStates={skillEffects} />;
       default:
@@ -283,6 +297,13 @@ const SkillEffectsDisplay = ({ piece, skillEffects, currentTurn = 0 }) => {
                 <Text style={styles.durationText}>{remainingTurns}</Text>
               </View>
             )}
+            {buff.type === 'swift_shadow' && (
+              <View style={styles.swiftShadowEffect}>
+                <Text style={styles.swiftShadowIcon}>💨</Text>
+                <View style={styles.swiftShadowGlow} />
+                <Text style={styles.durationText}>{remainingTurns}</Text>
+              </View>
+            )}
             {buff.type === 'defensive_wall' && (
               <View style={styles.defensiveWallEffect}>
                 <Text style={styles.wallIcon}>🏰</Text>
@@ -339,10 +360,24 @@ const SkillEffectsDisplay = ({ piece, skillEffects, currentTurn = 0 }) => {
                 <Text style={styles.durationText}>{remainingTurns}</Text>
               </View>
             )}
-            {buff.type === 'draw_sword_slash' && (
-              <View style={styles.drawSwordSlashEffect}>
-                <Text style={styles.drawSwordSlashIcon}>🗡️</Text>
-                <View style={styles.drawSwordSlashGlow} />
+            {buff.type === 'draw_sword_left' && (
+              <View style={styles.drawSwordLeftEffect}>
+                <Text style={styles.drawSwordLeftIcon}>🔪</Text>
+                <View style={styles.drawSwordLeftGlow} />
+                <Text style={styles.durationText}>{remainingTurns}</Text>
+              </View>
+            )}
+            {buff.type === 'draw_sword_center' && (
+              <View style={styles.drawSwordCenterEffect}>
+                <Text style={styles.drawSwordCenterIcon}>🗡️</Text>
+                <View style={styles.drawSwordCenterGlow} />
+                <Text style={styles.durationText}>{remainingTurns}</Text>
+              </View>
+            )}
+            {buff.type === 'draw_sword_right' && (
+              <View style={styles.drawSwordRightEffect}>
+                <Text style={styles.drawSwordRightIcon}>⚔️</Text>
+                <View style={styles.drawSwordRightGlow} />
                 <Text style={styles.durationText}>{remainingTurns}</Text>
               </View>
             )}
@@ -367,6 +402,13 @@ const SkillEffectsDisplay = ({ piece, skillEffects, currentTurn = 0 }) => {
                 <Text style={styles.durationText}>{remainingTurns}</Text>
               </View>
             )}
+            {buff.type === 'crushing_armor' && (
+              <View style={styles.crushingArmorEffect}>
+                <Text style={styles.crushingArmorIcon}>💥</Text>
+                <View style={styles.crushingArmorGlow} />
+                <Text style={styles.durationText}>{remainingTurns}</Text>
+              </View>
+            )}
         </View>
       );
       })}
@@ -381,7 +423,6 @@ const SkillEffectsDisplay = ({ piece, skillEffects, currentTurn = 0 }) => {
             {debuff.type === 'burning' && (
               <View style={styles.burningEffect}>
                 <Text style={styles.burningIcon}>🔥</Text>
-                <View style={styles.burningGlow} />
                 <Text style={styles.durationText}>{remainingTurns}</Text>
               </View>
             )}
@@ -683,6 +724,32 @@ const styles = StyleSheet.create({
     shadowOpacity: 0.8,
     shadowRadius: 15,
   },
+  // 疾行遁影效果
+  swiftShadowEffect: {
+    position: 'relative',
+    justifyContent: 'center',
+    alignItems: 'center',
+  },
+  swiftShadowIcon: {
+    fontSize: 30,
+    zIndex: 10,
+    textShadowColor: '#4A4A4A',
+    textShadowOffset: { width: 0, height: 0 },
+    textShadowRadius: 10,
+  },
+  swiftShadowGlow: {
+    position: 'absolute',
+    width: 80,
+    height: 80,
+    borderRadius: 40,
+    backgroundColor: 'rgba(74, 74, 74, 0.3)',
+    borderWidth: 2,
+    borderColor: '#4A4A4A',
+    shadowColor: '#4A4A4A',
+    shadowOffset: { width: 0, height: 0 },
+    shadowOpacity: 0.8,
+    shadowRadius: 15,
+  },
   // 防禦牆效果
   defensiveWallEffect: {
     position: 'relative',
@@ -744,9 +811,6 @@ const styles = StyleSheet.create({
   burningIcon: {
     fontSize: 30,
     zIndex: 10,
-    textShadowColor: '#FF4500',
-    textShadowOffset: { width: 0, height: 0 },
-    textShadowRadius: 10,
   },
   burningGlow: {
     position: 'absolute',
@@ -969,28 +1033,80 @@ const styles = StyleSheet.create({
     shadowOpacity: 0.8,
     shadowRadius: 15,
   },
-  // 拔刀斬效果
-  drawSwordSlashEffect: {
+  // 拔刀斬左效果
+  drawSwordLeftEffect: {
     position: 'relative',
     justifyContent: 'center',
     alignItems: 'center',
   },
-  drawSwordSlashIcon: {
+  drawSwordLeftIcon: {
     fontSize: 30,
     zIndex: 10,
-    textShadowColor: '#C0C0C0',
+    textShadowColor: '#FF8C00',
     textShadowOffset: { width: 0, height: 0 },
     textShadowRadius: 10,
   },
-  drawSwordSlashGlow: {
+  drawSwordLeftGlow: {
     position: 'absolute',
     width: 80,
     height: 80,
     borderRadius: 40,
-    backgroundColor: 'rgba(192, 192, 192, 0.3)',
+    backgroundColor: 'rgba(255, 140, 0, 0.3)',
     borderWidth: 2,
-    borderColor: '#C0C0C0',
-    shadowColor: '#C0C0C0',
+    borderColor: '#FF8C00',
+    shadowColor: '#FF8C00',
+    shadowOffset: { width: 0, height: 0 },
+    shadowOpacity: 0.8,
+    shadowRadius: 15,
+  },
+  // 拔刀斬中效果
+  drawSwordCenterEffect: {
+    position: 'relative',
+    justifyContent: 'center',
+    alignItems: 'center',
+  },
+  drawSwordCenterIcon: {
+    fontSize: 30,
+    zIndex: 10,
+    textShadowColor: '#FF8C00',
+    textShadowOffset: { width: 0, height: 0 },
+    textShadowRadius: 10,
+  },
+  drawSwordCenterGlow: {
+    position: 'absolute',
+    width: 80,
+    height: 80,
+    borderRadius: 40,
+    backgroundColor: 'rgba(255, 140, 0, 0.3)',
+    borderWidth: 2,
+    borderColor: '#FF8C00',
+    shadowColor: '#FF8C00',
+    shadowOffset: { width: 0, height: 0 },
+    shadowOpacity: 0.8,
+    shadowRadius: 15,
+  },
+  // 拔刀斬右效果
+  drawSwordRightEffect: {
+    position: 'relative',
+    justifyContent: 'center',
+    alignItems: 'center',
+  },
+  drawSwordRightIcon: {
+    fontSize: 30,
+    zIndex: 10,
+    textShadowColor: '#FF8C00',
+    textShadowOffset: { width: 0, height: 0 },
+    textShadowRadius: 10,
+  },
+  drawSwordRightGlow: {
+    position: 'absolute',
+    width: 80,
+    height: 80,
+    borderRadius: 40,
+    backgroundColor: 'rgba(255, 140, 0, 0.3)',
+    borderWidth: 2,
+    borderColor: '#FF8C00',
+    shadowColor: '#FF8C00',
     shadowOffset: { width: 0, height: 0 },
     shadowOpacity: 0.8,
     shadowRadius: 15,
@@ -1069,6 +1185,32 @@ const styles = StyleSheet.create({
     borderWidth: 2,
     borderColor: '#FFD700',
     shadowColor: '#FFD700',
+    shadowOffset: { width: 0, height: 0 },
+    shadowOpacity: 0.8,
+    shadowRadius: 15,
+  },
+  // 沉痛破甲效果
+  crushingArmorEffect: {
+    position: 'relative',
+    justifyContent: 'center',
+    alignItems: 'center',
+  },
+  crushingArmorIcon: {
+    fontSize: 30,
+    zIndex: 10,
+    textShadowColor: '#8B4513',
+    textShadowOffset: { width: 0, height: 0 },
+    textShadowRadius: 10,
+  },
+  crushingArmorGlow: {
+    position: 'absolute',
+    width: 80,
+    height: 80,
+    borderRadius: 40,
+    backgroundColor: 'rgba(139, 69, 19, 0.3)',
+    borderWidth: 2,
+    borderColor: '#8B4513',
+    shadowColor: '#8B4513',
     shadowOffset: { width: 0, height: 0 },
     shadowOpacity: 0.8,
     shadowRadius: 15,

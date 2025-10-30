@@ -22,7 +22,8 @@ import {
   getPieceAttackPower,
   getPieceSpecialRules,
   getPieceAttackRange,
-  getPieceCategory
+  getPieceCategory,
+  getPieceAttackDistance
 } from './pieceRules';
 import { CardSystem, SKILL_CARDS } from './CardSystem';
 
@@ -64,6 +65,16 @@ const PIECE_TYPES = {
     category: '遠程型',
     skill: '遠程攻擊，移動範圍廣',
     description: '精準的射手，擅長遠距離作戰',
+  },
+  CB: { 
+    name: '弩手', 
+    color: '#8B4513', // 棕色
+    darkColor: '#654321',
+    symbol: 'CB',
+    material: 'bronze',
+    category: '特殊型',
+    skill: '重型遠程攻擊，需要前方有己方棋子',
+    description: '重型弩手，遠距離狙擊敵人',
   },
   M: { 
     name: '法師', 
@@ -126,85 +137,6 @@ const PIECE_TYPES = {
 const ChessBoard3D = ({ onBack, gameMode, playerDeck: initialPlayerDeck }) => {
   // 載入狀態
   const [isLoading, setIsLoading] = useState(true);
-  
-  // 檢測場上棋子的函數
-  const checkInjuredPieces = () => {
-    let injuredCount = 0;
-    let totalPieces = 0;
-    let humanPieces = 0;
-    let aiPieces = 0;
-    let pieceDetails = [];
-    
-    for (let row = 0; row < BOARD_SIZE; row++) {
-      for (let col = 0; col < BOARD_SIZE; col++) {
-        const piece = board[row][col];
-        if (piece && piece !== 'empty') {
-          totalPieces++;
-          const pieceKey = `${row}-${col}`;
-          const pieceState = pieceStates[pieceKey];
-          const pieceOwner = pieceOwners[pieceKey];
-          const maxHealth = getPieceMaxHealth(piece);
-          const currentHealth = pieceState?.health || maxHealth;
-          
-          // 統計玩家和AI的棋子
-          if (pieceOwner === 'human') {
-            humanPieces++;
-          } else if (pieceOwner === 'ai') {
-            aiPieces++;
-          }
-          
-          const isInjured = pieceState?.isInjured || (currentHealth < maxHealth);
-          if (isInjured) {
-            injuredCount++;
-          }
-          
-          pieceDetails.push({
-            position: `[${row},${col}]`,
-            piece: piece,
-            owner: pieceOwner,
-            health: `${currentHealth}/${maxHealth}`,
-            isInjured: isInjured
-          });
-        }
-      }
-    }
-    
-    
-    return { 
-      totalPieces, 
-      injuredCount, 
-      humanPieces, 
-      aiPieces,
-      healthyPieces: totalPieces - injuredCount
-    };
-  };
-  
-  // 添加檢測受傷棋子的按鈕
-  const addInjuredCheckButton = () => {
-    return (
-      <TouchableOpacity
-        style={{
-          position: 'absolute',
-          top: 50,
-          right: 10,
-          backgroundColor: '#FF6B6B',
-          padding: 10,
-          borderRadius: 5,
-          zIndex: 1000
-        }}
-        onPress={() => {
-          const result = checkInjuredPieces();
-          Alert.alert(
-            '場上棋子統計',
-            `總棋子數: ${result.totalPieces}\n玩家棋子: ${result.humanPieces}\nAI棋子: ${result.aiPieces}\n健康棋子: ${result.healthyPieces}\n受傷棋子: ${result.injuredCount}`,
-            [{ text: '確定' }]
-          );
-        }}
-      >
-        <Text style={{ color: 'white', fontSize: 12 }}>檢測棋子</Text>
-      </TouchableOpacity>
-    );
-  };
   
   // 防止重複初始化的標誌
   const [isInitialized, setIsInitialized] = useState(false);
@@ -328,11 +260,15 @@ const ChessBoard3D = ({ onBack, gameMode, playerDeck: initialPlayerDeck }) => {
   if (isFrontRow) {
     console.log(`前排棋子 [${row},${col}] ${piece}: 滿血=${fullHealth}, 初始血量=${initialHealth}`);
   }
-  
-  // 額外調試：檢查所有第6行的棋子
-  if (row === 6) {
-    console.log(`第6行棋子檢測: [${row},${col}] ${piece} - 是否為前排: ${isFrontRow}, 初始血量: ${initialHealth}`);
-  }
+            
+            // 檢查是否是影耀雙主教，根據出生格顏色決定形態
+            let bishopForm = null;
+            if (piece === 'BP') {
+              // 格子顏色：(row + col) % 2 === 0 是白格，1是黑格
+              const isWhiteSquare = (row + col) % 2 === 0;
+              bishopForm = isWhiteSquare ? 'radiant' : 'shadow'; // 白格=光耀，黑格=陰影
+              console.log(`影耀雙主教 [${row},${col}] 出生在${isWhiteSquare ? '白格' : '黑格'}，形態：${bishopForm === 'radiant' ? '光耀主教' : '陰影主教'}`);
+            }
             
             newPieceStates[pieceKey] = {
               hasMoved: false,
@@ -345,7 +281,8 @@ const ChessBoard3D = ({ onBack, gameMode, playerDeck: initialPlayerDeck }) => {
               isPoisoned: false,
               isInjured: false, // 受傷狀態標記
               buffs: [],
-              debuffs: []
+              debuffs: [],
+              ...(bishopForm && { bishopForm }) // 如果是主教，添加形態屬性
             };
             // 設置棋子歸屬權：根據行來判斷（行0-1是AI，行5-7是玩家）
             newPieceOwners[pieceKey] = row <= 1 ? 'ai' : 'human';
@@ -362,10 +299,6 @@ const ChessBoard3D = ({ onBack, gameMode, playerDeck: initialPlayerDeck }) => {
       setTimeout(() => {
         setIsLoading(false);
         
-        // 遊戲開始時檢測受傷棋子
-        setTimeout(() => {
-          checkInjuredPieces();
-        }, 1000);
       }, 500); // 給一點時間讓動畫完成
     }
   
@@ -543,6 +476,14 @@ const ChessBoard3D = ({ onBack, gameMode, playerDeck: initialPlayerDeck }) => {
         if (drawSwordBuff) {
           baseAttackPower += drawSwordBuff.attackBonus || 0;
         }
+        
+        // 檢查月蝕降臨buff
+        const eclipseBuff = pieceState.buffs.find(buff => 
+          buff.type === 'eclipse_descent' && buff.endTurn > currentTurn
+        );
+        if (eclipseBuff) {
+          baseAttackPower += eclipseBuff.attackBonus || 0;
+        }
       }
     }
     
@@ -550,7 +491,8 @@ const ChessBoard3D = ({ onBack, gameMode, playerDeck: initialPlayerDeck }) => {
   };
 
   // 卡牌相關函數 - 處理技能卡牌使用
-  const playCard = (card) => {
+  // isPlaying: false 表示查看，true 表示打出
+  const playCard = (card, isPlaying = false) => {
     if (currentPlayer === 'human') {
       if (card === null) {
         // 取消選中
@@ -559,39 +501,34 @@ const ChessBoard3D = ({ onBack, gameMode, playerDeck: initialPlayerDeck }) => {
         setIsSelectingTarget(false);
         setSkillTargets([]);
         setHasShownSkillError(false); // 重置錯誤提示狀態
-      } else if (selectedCard && selectedCard.id === card.id) {
-        // 如果點擊已選中的卡片
-        if (selectedCard.type === 'basic') {
-          // 基本卡再次點擊直接執行
-          applySkillEffect(selectedCard, null, null);
-          setSelectedCard(null);
-          setPendingSkillCard(null);
-          setIsSelectingTarget(false);
-          setSkillTargets([]);
-          setHasShownSkillError(false);
-          setHasConsumedActionPoints(false);
-        } else if (isSelectingTarget && pendingSkillCard) {
-          // 非基本卡正在選擇目標時，取消選中
-          setSelectedCard(null);
-          setPendingSkillCard(null);
-          setIsSelectingTarget(false);
-          setSkillTargets([]);
-          setHasShownSkillError(false);
-          setHasConsumedActionPoints(false);
-        } else {
-          // 非基本卡未選擇目標時，取消選中
-          setSelectedCard(null);
-          setPendingSkillCard(null);
-          setIsSelectingTarget(false);
-          setSkillTargets([]);
-          setHasShownSkillError(false);
-          setHasConsumedActionPoints(false);
-        }
-      } else if (isSelectingTarget && pendingSkillCard) {
+      } else if (selectedCard && selectedCard.id === card.id && !isPlaying) {
+        // 如果查看模式下點擊已選中的卡片，取消選中
+        setSelectedCard(null);
+        setPendingSkillCard(null);
+        setIsSelectingTarget(false);
+        setSkillTargets([]);
+        setHasShownSkillError(false);
+        setHasConsumedActionPoints(false);
+      } else if (selectedCard && selectedCard.id === card.id && isPlaying) {
+        // 如果打出模式下點擊已選中的卡片，應該打不出來（因為已經是選中狀態）
+        // 這個情況下應該不會發生，因為拖曳會直接打出
+        return;
+      } else if (isSelectingTarget && pendingSkillCard && !isPlaying) {
         // 如果正在選擇目標，則阻止新卡牌使用但保持當前狀態
         Alert.alert('請先完成當前技能', '請先選擇目標或取消當前技能');
         return; // 阻止繼續執行
       } else {
+        // 如果是查看（點擊），只選中不消耗行動點，但顯示可放棋子的高亮
+        if (!isPlaying) {
+          setSelectedCard(card);
+          setPendingSkillCard(card);
+          // 顯示高亮但不顯示選擇目標文字
+          setSkillTargets(getValidTargets(card));
+          setIsSelectingTarget(false);
+          return;
+        }
+        
+        // 如果是打出（拖曳），才檢查和消耗行動點
         // 檢查是否有足夠的行動點
         if (actionPoints.current < card.cost) {
           Alert.alert(
@@ -616,10 +553,10 @@ const ChessBoard3D = ({ onBack, gameMode, playerDeck: initialPlayerDeck }) => {
         
         // 檢查是否為基本卡牌（不需要目標）
         if (card.type === 'basic') {
-          // 基本卡牌也需要先選中，讓玩家可以查看詳情
-          setSelectedCard(card);
-          setPendingSkillCard(card);
-          // 不直接執行，等待下一次點擊
+          // 基本卡牌直接執行
+          applySkillEffect(card, null, null);
+          setSelectedCard(null);
+          setPendingSkillCard(null);
         } else {
           // 其他卡牌需要選擇目標
           setSelectedCard(card);
@@ -799,6 +736,25 @@ const ChessBoard3D = ({ onBack, gameMode, playerDeck: initialPlayerDeck }) => {
               targets.push({ row, col, piece, owner: inferredOwner });
             }
             break;
+          case 'crossbowman_exclusive':
+            // 弩手專屬：只能對己方弩手使用
+            if (inferredOwner === 'human' && card.requiredPieces.includes(piece)) {
+              targets.push({ row, col, piece, owner: inferredOwner });
+            }
+            break;
+          case 'bishop_exclusive':
+            // 影耀雙主教專屬：只能對己方主教使用，且必須符合形態要求
+            if (inferredOwner === 'human' && card.requiredPieces.includes(piece)) {
+              const pieceKey = `${row}-${col}`;
+              const pieceState = pieceStates[pieceKey];
+              const bishopForm = pieceState?.bishopForm || 'radiant'; // 默認光耀形態
+              
+              // 檢查形態是否符合要求（如果有requiredForm屬性）
+              if (!card.requiredForm || card.requiredForm === bishopForm) {
+                targets.push({ row, col, piece, owner: inferredOwner });
+              }
+            }
+            break;
           case 'basic':
             // 基本卡牌：不需要目標
             return [];
@@ -890,12 +846,12 @@ const ChessBoard3D = ({ onBack, gameMode, playerDeck: initialPlayerDeck }) => {
         break;
         
           case 'BURNING_ARROW':
-            // 燃燒箭：給射手添加燃燒箭buff，攻擊時會轉移燃燒效果到被攻擊的格子
+            // 燃燒箭：給射手添加燃燒箭buff，攻擊時會轉移燃燒效果到被攻擊的棋子
             setPieceStates(prev => ({
               ...prev,
               [pieceKey]: {
                 ...prev[pieceKey],
-                buffs: [...(prev[pieceKey]?.buffs || []), { type: 'burning_arrow', endTurn: currentTurn + 2 }]
+                buffs: [...(prev[pieceKey]?.buffs || []), { type: 'burning_arrow', endTurn: currentTurn + 1 }]
               }
             }));
             break;
@@ -1036,6 +992,38 @@ const ChessBoard3D = ({ onBack, gameMode, playerDeck: initialPlayerDeck }) => {
         }
         break;
         
+      case 'TACTICS_B':
+        // B戰術：把現有手牌洗進牌堆，重新抽取等量的牌（但會少1張，因為B戰術被消耗）
+        const currentHandSize = playerHand.length;
+        
+        if (currentHandSize > 0) {
+          // 1. 把手牌洗回牌堆
+          const shuffledDeck = [...playerCardDeck, ...playerHand];
+          
+          // 2. 洗牌算法（Fisher-Yates shuffle）
+          for (let i = shuffledDeck.length - 1; i > 0; i--) {
+            const j = Math.floor(Math.random() * (i + 1));
+            [shuffledDeck[i], shuffledDeck[j]] = [shuffledDeck[j], shuffledDeck[i]];
+          }
+          
+          // 3. 重新抽取比原手牌少1張的牌（B戰術被消耗，不會重新抽取）
+          const newHandSize = currentHandSize - 1;
+          const newHand = [];
+          for (let i = 0; i < newHandSize && shuffledDeck.length > 0; i++) {
+            newHand.push(shuffledDeck[i]);
+          }
+          
+          // 4. 更新牌堆（移除已抽取的牌）
+          const remainingDeck = shuffledDeck.slice(newHandSize);
+          
+          // 5. 設置新手牌和剩餘牌堆
+          setPlayerHand(newHand);
+          setPlayerCardDeck(remainingDeck);
+          
+          console.log(`B戰術：洗牌重抽完成，原手牌: ${currentHandSize}，新手牌: ${newHandSize}`);
+        }
+        break;
+        
       case 'CHARGE_ORDER':
         // 衝鋒令：下一次移動多1格，攻擊力+50
         setPieceStates(prev => ({
@@ -1050,6 +1038,22 @@ const ChessBoard3D = ({ onBack, gameMode, playerDeck: initialPlayerDeck }) => {
             }]
           }
         }));
+        break;
+        
+      case 'SWIFT_SHADOW':
+        // 疾行遁影：移動距離+2格，持續1回合
+        setPieceStates(prev => ({
+          ...prev,
+          [pieceKey]: {
+            ...prev[pieceKey],
+            buffs: [...(prev[pieceKey]?.buffs || []), { 
+              type: 'swift_shadow', 
+              endTurn: currentTurn + 2,
+              moveBonus: 2
+            }]
+          }
+        }));
+        console.log('疾行遁影buff已添加，目標位置:', targetRow, targetCol, '持續到回合:', currentTurn + 2);
         break;
         
       case 'HONOR_BLOOD':
@@ -1076,17 +1080,52 @@ const ChessBoard3D = ({ onBack, gameMode, playerDeck: initialPlayerDeck }) => {
         }
         break;
         
-      case 'DRAW_SWORD_SLASH':
-        // 拔刀斬：攻擊力+100，回合結束時受到50傷害
+      case 'DRAW_SWORD_LEFT':
+        // 拔刀斬左：攻擊力+200，當回合只能攻擊左前方，回合結束時受到50傷害
         setPieceStates(prev => ({
           ...prev,
           [pieceKey]: {
             ...prev[pieceKey],
             buffs: [...(prev[pieceKey]?.buffs || []), { 
-              type: 'draw_sword_slash', 
+              type: 'draw_sword_left', 
               endTurn: currentTurn + 1, // 持續1回合
-              attackBonus: 100,
-              turnEndDamage: 50
+              attackBonus: 200,
+              turnEndDamage: 50,
+              attackDirection: 'left' // 只能攻擊左前方
+            }]
+          }
+        }));
+        break;
+        
+      case 'DRAW_SWORD_CENTER':
+        // 拔刀斬中：攻擊力+200，當回合只能攻擊正前方，回合結束時受到50傷害
+        setPieceStates(prev => ({
+          ...prev,
+          [pieceKey]: {
+            ...prev[pieceKey],
+            buffs: [...(prev[pieceKey]?.buffs || []), { 
+              type: 'draw_sword_center', 
+              endTurn: currentTurn + 1, // 持續1回合
+              attackBonus: 200,
+              turnEndDamage: 50,
+              attackDirection: 'center' // 只能攻擊正前方
+            }]
+          }
+        }));
+        break;
+        
+      case 'DRAW_SWORD_RIGHT':
+        // 拔刀斬右：攻擊力+200，當回合只能攻擊右前方，回合結束時受到50傷害
+        setPieceStates(prev => ({
+          ...prev,
+          [pieceKey]: {
+            ...prev[pieceKey],
+            buffs: [...(prev[pieceKey]?.buffs || []), { 
+              type: 'draw_sword_right', 
+              endTurn: currentTurn + 1, // 持續1回合
+              attackBonus: 200,
+              turnEndDamage: 50,
+              attackDirection: 'right' // 只能攻擊右前方
             }]
           }
         }));
@@ -1234,6 +1273,167 @@ const ChessBoard3D = ({ onBack, gameMode, playerDeck: initialPlayerDeck }) => {
         }));
         
         console.log('光耀斬擊：牧師獲得攻擊增益，下次攻擊時驅散敵方增益並造成額外傷害');
+        break;
+        
+      case 'CRUSHING_ARMOR':
+        // 沉痛破甲：弩手專屬，攻擊基礎型卡牌造成150傷害，攻擊一般卡牌造成100傷害
+        console.log('施放沉痛破甲技能，目標:', targetRow, targetCol, '目標棋子:', targetPiece, 'pieceKey:', pieceKey);
+        console.log('當前回合:', currentTurn, 'buff持續回合:', currentTurn + card.duration);
+        setPieceStates(prev => {
+          console.log('設置buff前的狀態:', prev[pieceKey]);
+          return {
+            ...prev,
+            [pieceKey]: {
+              ...prev[pieceKey],
+              buffs: [...(prev[pieceKey]?.buffs || []), { 
+                type: 'crushing_armor', 
+                endTurn: currentTurn + card.duration, // 持續2回合
+                baseDamage: 150, // 對基礎型造成150傷害
+                normalDamage: 100 // 對一般卡牌造成100傷害
+              }]
+            }
+          };
+        });
+        console.log('沉痛破甲：弩手獲得破甲buff，攻擊基礎型造成150傷害，攻擊一般卡牌造成100傷害');
+        break;
+        
+      case 'ECLIPSE_DESCENT':
+        // 月蝕降臨：陰影主教專屬，攻擊力+50，本回合可以直走兩格
+        setPieceStates(prev => ({
+          ...prev,
+          [pieceKey]: {
+            ...prev[pieceKey],
+            buffs: [...(prev[pieceKey]?.buffs || []), { 
+              type: 'eclipse_descent', 
+              endTurn: currentTurn + 1,
+              attackBonus: 50,
+              straightMoveBonus: 2 // 可以直走兩格
+            }]
+          }
+        }));
+        console.log('月蝕降臨：陰影主教攻擊力+50，本回合可以直走兩格');
+        break;
+        
+      case 'BLACK_RITUAL':
+        // 黑聖禮：陰影主教專屬，犧牲自身50血，對左前和右前方造成100傷害
+        const bishopState = pieceStates[pieceKey];
+        const currentBishopHealth = bishopState?.health || getPieceHealth(targetPiece);
+        const newBishopHealth = Math.max(0, currentBishopHealth - 50);
+        
+        // 減少主教血量
+        setPieceStates(prev => ({
+          ...prev,
+          [pieceKey]: {
+            ...prev[pieceKey],
+            health: newBishopHealth
+          }
+        }));
+        
+        // 對左前和右前方造成100傷害
+        const directions = [[-1, -1], [-1, 1]]; // 左前方和右前方（對玩家來說）
+        directions.forEach(([dRow, dCol]) => {
+          const damageRow = targetRow + dRow;
+          const damageCol = targetCol + dCol;
+          
+          if (isValidPosition(damageRow, damageCol)) {
+            const damagePiece = board[damageRow][damageCol];
+            if (damagePiece !== 'empty') {
+              const damageKey = `${damageRow}-${damageCol}`;
+              const damageOwner = pieceOwners[damageKey];
+              
+              // 只對敵方棋子造成傷害
+              if (damageOwner !== currentPlayer) {
+                const damageState = pieceStates[damageKey];
+                const currentDamageHealth = damageState?.health || getPieceHealth(damagePiece);
+                const newDamageHealth = Math.max(0, currentDamageHealth - 100);
+                
+                setPieceStates(prev => ({
+                  ...prev,
+                  [damageKey]: {
+                    ...prev[damageKey],
+                    health: newDamageHealth
+                  }
+                }));
+                
+                console.log(`黑聖禮：對 [${damageRow},${damageCol}] 造成100傷害`);
+                
+                // 如果血量歸零，移除棋子
+                if (newDamageHealth <= 0) {
+                  const newBoard = board.map(row => [...row]);
+                  newBoard[damageRow][damageCol] = 'empty';
+                  setBoard(newBoard);
+                  
+                  setPieceStates(prev => {
+                    const newStates = { ...prev };
+                    delete newStates[damageKey];
+                    return newStates;
+                  });
+                  
+                  setPieceOwners(prev => {
+                    const newOwners = { ...prev };
+                    delete newOwners[damageKey];
+                    return newOwners;
+                  });
+                }
+              }
+            }
+          }
+        });
+        
+        console.log('黑聖禮：陰影主教犧牲50血，對左前和右前方造成100傷害');
+        break;
+        
+      case 'REVELATION_GUARD':
+        // 天啟護陣：光耀主教專屬，建立光之結界捆綁左前方和右前方的敵方棋子（無法移動1回合）
+        const bindDirections = [[-1, -1], [-1, 1]]; // 左前方和右前方
+        bindDirections.forEach(([dRow, dCol]) => {
+          const bindRow = targetRow + dRow;
+          const bindCol = targetCol + dCol;
+          
+          if (isValidPosition(bindRow, bindCol)) {
+            const bindPiece = board[bindRow][bindCol];
+            if (bindPiece !== 'empty') {
+              const bindKey = `${bindRow}-${bindCol}`;
+              const bindOwner = pieceOwners[bindKey];
+              
+              // 只對敵方棋子生效
+              if (bindOwner !== currentPlayer) {
+                setPieceStates(prev => ({
+                  ...prev,
+                  [bindKey]: {
+                    ...prev[bindKey],
+                    debuffs: [...(prev[bindKey]?.debuffs || []), {
+                      type: 'light_binding',
+                      endTurn: currentTurn + 1,
+                      cannotMove: true
+                    }]
+                  }
+                }));
+                
+                console.log(`天啟護陣：捆綁 [${bindRow},${bindCol}] 的敵方棋子，無法移動1回合`);
+              }
+            }
+          }
+        });
+        break;
+        
+      case 'JUDGMENT_SPEAR':
+        // 審判之矛：光耀主教專屬，直線攻擊前方一格敵人150聖光傷害
+        // 需要選擇目標（前方一格）
+        // 這個技能在攻擊時觸發，所以這裡添加buff，實際傷害在攻擊時計算
+        setPieceStates(prev => ({
+          ...prev,
+          [pieceKey]: {
+            ...prev[pieceKey],
+            buffs: [...(prev[pieceKey]?.buffs || []), { 
+              type: 'judgment_spear', 
+              endTurn: currentTurn + 1,
+              damage: 150
+            }]
+          }
+        }));
+        
+        console.log('審判之矛：光耀主教下次直線攻擊前方一格敵人造成150聖光傷害');
         break;
         
       default:
@@ -1553,49 +1753,54 @@ const ChessBoard3D = ({ onBack, gameMode, playerDeck: initialPlayerDeck }) => {
         console.log(`牆壁衍生物 [${row}, ${col}] 已消失（第${turnNumber}回合）`);
       });
       
-      // 處理格子燃燒效果
+      // 處理棋子燃燒效果
       Object.keys(newStates).forEach(pieceKey => {
         const pieceState = newStates[pieceKey];
-        if (pieceState && pieceState.burningField) {
-          const burningField = pieceState.burningField;
-          const remainingTurns = Math.max(0, burningField.endTurn - turnNumber);
+        if (pieceState && pieceState.debuffs) {
+          const burningDebuff = pieceState.debuffs.find(debuff => debuff.type === 'burning');
           
-          if (remainingTurns > 0) {
-            // 檢查該格子上是否有棋子
-            const [row, col] = pieceKey.split('-').map(Number);
-            const piece = board[row][col];
+          if (burningDebuff) {
+            const remainingTurns = Math.max(0, burningDebuff.endTurn - turnNumber);
             
-            if (piece !== 'empty') {
-              // 對該格子的棋子造成燃燒傷害
-              const currentHealth = pieceStates[pieceKey]?.health || getPieceHealth(piece);
-              const newHealth = Math.max(0, currentHealth - burningField.damage);
+            if (remainingTurns > 0) {
+              // 對燃燒的棋子造成傷害
+              const [row, col] = pieceKey.split('-').map(Number);
+              const piece = board[row][col];
               
+              if (piece !== 'empty') {
+                const currentHealth = pieceStates[pieceKey]?.health || getPieceHealth(piece);
+                const newHealth = Math.max(0, currentHealth - burningDebuff.damage);
+                
+                newStates[pieceKey] = {
+                  ...pieceState,
+                  health: newHealth
+                };
+                
+                console.log(`棋子 [${row}, ${col}] 的燃燒效果造成 ${burningDebuff.damage} 傷害，剩餘血量: ${newHealth}`);
+                
+                // 如果血量歸零，移除棋子
+                if (newHealth <= 0) {
+                  const newBoard = board.map(r => [...r]);
+                  newBoard[row][col] = 'empty';
+                  setBoard(newBoard);
+                  
+                  // 清除棋子狀態
+                  delete newStates[pieceKey];
+                  setPieceOwners(prev => {
+                    const newOwners = { ...prev };
+                    delete newOwners[pieceKey];
+                    return newOwners;
+                  });
+                }
+              }
+            } else {
+              // 燃燒效果結束，移除燃燒debuff
               newStates[pieceKey] = {
                 ...pieceState,
-                health: newHealth
+                debuffs: pieceState.debuffs.filter(debuff => debuff.type !== 'burning')
               };
-              
-              console.log(`格子 [${row}, ${col}] 的燃燒效果對棋子造成 ${burningField.damage} 傷害，剩餘血量: ${newHealth}`);
-              
-              // 如果血量歸零，移除棋子
-              if (newHealth <= 0) {
-                const newBoard = board.map(r => [...r]);
-                newBoard[row][col] = 'empty';
-                setBoard(newBoard);
-                
-                // 清除棋子狀態
-                delete newStates[pieceKey];
-                setPieceOwners(prev => {
-                  const newOwners = { ...prev };
-                  delete newOwners[pieceKey];
-                  return newOwners;
-                });
-              }
+              console.log(`棋子 [${pieceKey.split('-').map(Number).join(', ')}] 的燃燒效果已結束`);
             }
-          } else {
-            // 燃燒效果結束，移除格子燃燒效果
-            delete newStates[pieceKey].burningField;
-            console.log(`格子 [${row}, ${col}] 的燃燒效果已結束`);
           }
         }
       });
@@ -1618,6 +1823,36 @@ const ChessBoard3D = ({ onBack, gameMode, playerDeck: initialPlayerDeck }) => {
     
     setCurrentPlayer('ai');
     setIsAITurn(true);
+  };
+
+  // 測試用換牌功能
+  const handleSwapCards = () => {
+    if (playerHand.length > 0) {
+      // 1. 把手牌洗回牌堆
+      const shuffledDeck = [...playerCardDeck, ...playerHand];
+      
+      // 2. 洗牌算法（Fisher-Yates shuffle）
+      for (let i = shuffledDeck.length - 1; i > 0; i--) {
+        const j = Math.floor(Math.random() * (i + 1));
+        [shuffledDeck[i], shuffledDeck[j]] = [shuffledDeck[j], shuffledDeck[i]];
+      }
+      
+      // 3. 重新抽取等量的牌
+      const newHand = [];
+      const handSize = playerHand.length;
+      for (let i = 0; i < handSize && shuffledDeck.length > 0; i++) {
+        newHand.push(shuffledDeck[i]);
+      }
+      
+      // 4. 更新牌堆（移除已抽取的牌）
+      const remainingDeck = shuffledDeck.slice(handSize);
+      
+      // 5. 更新狀態
+      setPlayerCardDeck(remainingDeck);
+      setPlayerHand(newHand);
+      
+      console.log(`測試換牌：重新抽取了 ${newHand.length} 張牌`);
+    }
   };
 
   // AI出牌決策函數
@@ -1743,6 +1978,27 @@ const ChessBoard3D = ({ onBack, gameMode, playerDeck: initialPlayerDeck }) => {
     }
     
     return actionPoints.current >= requiredCost;
+  };
+
+  // 草地格子追蹤（使用 Set 存儲格子座標字符串 "row-col"）
+  // 初始化時將 (5, 2) 格子設為草地
+  const [grassTiles, setGrassTiles] = useState(() => {
+    const initialGrassTiles = new Set();
+    initialGrassTiles.add('5-2'); // 直接將 (5, 2) 格子設為草地
+    return initialGrassTiles;
+  });
+  
+  // 將格子變成草地
+  const addGrassTile = (row, col) => {
+    const tileKey = `${row}-${col}`;
+    setGrassTiles(prev => new Set(prev).add(tileKey));
+    console.log(`將格子 [${row}, ${col}] 變成草地`);
+  };
+  
+  // 檢查格子是否為草地
+  const isGrassTile = (row, col) => {
+    const tileKey = `${row}-${col}`;
+    return grassTiles.has(tileKey);
   };
 
   // 初始化棋盤狀態
@@ -1880,7 +2136,73 @@ const ChessBoard3D = ({ onBack, gameMode, playerDeck: initialPlayerDeck }) => {
     console.log('目標狀態:', targetState);
     
     // 獲取攻擊力
-    const attackPower = getPieceAttackPowerWithBuffs(attackerPiece, attackerKey);
+    let attackPower = getPieceAttackPowerWithBuffs(attackerPiece, attackerKey);
+    
+    // 檢查刺客對遠程卡的特殊傷害（攻擊距離>1格的棋子）
+    if (attackerPiece === 'AS') {
+      const targetAttackDistance = getPieceAttackDistance(targetPiece);
+      if (targetAttackDistance > 1) {
+        // 刺客攻擊遠程卡造成100點傷害
+        attackPower = 100;
+        console.log('刺客特殊傷害：攻擊遠程卡', targetPiece, '(攻擊距離:', targetAttackDistance, ')造成', attackPower, '傷害');
+      }
+    }
+    
+    // 檢查攻擊者是否有審判之矛buff（光耀主教）
+    if (attackerState && attackerState.buffs) {
+      const judgmentSpearBuff = attackerState.buffs.find(buff => 
+        buff.type === 'judgment_spear' && buff.endTurn > currentTurn
+      );
+      
+      if (judgmentSpearBuff) {
+        // 檢查是否為直線攻擊前方一格
+        const dRow = targetRow - attackerRow;
+        const dCol = targetCol - attackerCol;
+        const isStraightFront = (dRow === -1 && dCol === 0) || (dRow === 1 && dCol === 0) || 
+                                (dRow === 0 && dCol === -1) || (dRow === 0 && dCol === 1);
+        const isOneStep = Math.abs(dRow) + Math.abs(dCol) === 1;
+        
+        if (isStraightFront && isOneStep) {
+          // 審判之矛：造成150聖光傷害
+          attackPower = judgmentSpearBuff.damage || 150;
+          console.log('審判之矛：光耀主教對前方一格敵人造成150聖光傷害');
+          
+          // 移除審判之矛buff（一次性效果）
+          setPieceStates(prev => ({
+            ...prev,
+            [attackerKey]: {
+              ...prev[attackerKey],
+              buffs: prev[attackerKey].buffs.filter(buff => buff.type !== 'judgment_spear')
+            }
+          }));
+        }
+      }
+    }
+    
+    // 檢查攻擊者是否有沉痛破甲buff
+    if (attackerState && attackerState.buffs) {
+      console.log('檢查攻擊者buff:', attackerState.buffs);
+      const crushingArmorBuff = attackerState.buffs.find(buff => 
+        buff.type === 'crushing_armor' && buff.endTurn > currentTurn
+      );
+      
+      console.log('沉痛破甲buff:', crushingArmorBuff);
+      
+      if (crushingArmorBuff) {
+        // 檢查目標是否為基礎型棋子（S, SM, SD, CC）
+        const basicPieces = ['S', 'SM', 'SD', 'CC'];
+        const isBasicPiece = basicPieces.includes(targetPiece);
+        
+        // 根據目標類型設置傷害
+        if (isBasicPiece) {
+          attackPower = crushingArmorBuff.baseDamage; // 基礎型造成150傷害
+          console.log('沉痛破甲：攻擊基礎型棋子', targetPiece, '造成', attackPower, '傷害');
+        } else {
+          attackPower = crushingArmorBuff.normalDamage; // 一般卡牌造成100傷害
+          console.log('沉痛破甲：攻擊一般卡牌', targetPiece, '造成', attackPower, '傷害');
+        }
+      }
+    }
     
     // 檢查是否有忠犬守護效果
     let actualDamage = attackPower;
@@ -2026,19 +2348,20 @@ const ChessBoard3D = ({ onBack, gameMode, playerDeck: initialPlayerDeck }) => {
       );
       
       if (burningArrowBuff) {
-        // 在目標格子上放置燃燒效果
+        // 燃燒箭效果轉移到被攻擊的棋子身上
         setPieceStates(prev => ({
           ...prev,
           [targetKey]: {
             ...prev[targetKey],
-            burningField: {
-              endTurn: currentTurn + 5, // 燃燒效果持續5回合
-              damage: 50
-            }
+            debuffs: [...(prev[targetKey]?.debuffs || []), {
+              type: 'burning',
+              endTurn: currentTurn + 4, // 燃燒效果持續4回合
+              damage: 25
+            }]
           }
         }));
         
-        console.log(`燃燒箭效果已轉移到格子 [${targetRow}, ${targetCol}]`);
+        console.log(`燃燒箭效果已轉移到棋子 [${targetRow}, ${targetCol}]，持續4回合`);
       }
     }
     
@@ -2357,8 +2680,220 @@ const ChessBoard3D = ({ onBack, gameMode, playerDeck: initialPlayerDeck }) => {
 
   // 處理衝鋒突擊效果
   const handleChargeAssault = (attackerRow, attackerCol, targetRow, targetCol) => {
-    // 衝鋒突擊：直接使用普通攻擊邏輯
-    return handleCombat(attackerRow, attackerCol, targetRow, targetCol);
+    console.log('衝鋒突擊效果觸發：從[', attackerRow, ',', attackerCol, '] 撞擊 [', targetRow, ',', targetCol, ']');
+    
+    const attackerKey = `${attackerRow}-${attackerCol}`;
+    const attackerState = pieceStates[attackerKey];
+    const targetKey = `${targetRow}-${targetCol}`;
+    const targetPiece = board[targetRow][targetCol];
+    const targetState = pieceStates[targetKey];
+    
+    // 獲取衝鋒突擊buff中的impactDamage（預設100點）
+    const chargeAssaultBuff = attackerState?.buffs?.find(buff => 
+      buff.type === 'charge_assault' && buff.endTurn > currentTurn
+    );
+    const baseDamage = chargeAssaultBuff?.impactDamage || 100;
+    
+    // 計算攻擊方向（從攻擊者到目標）
+    const dRow = targetRow - attackerRow;
+    const dCol = targetCol - attackerCol;
+    
+    // 標準化方向向量（只保留方向，不考慮距離）
+    // 後方是指目標遠離攻擊者的方向，也就是繼續沿攻擊方向前進的方向
+    let normalizedRow = 0;
+    let normalizedCol = 0;
+    
+    if (dRow !== 0) {
+      normalizedRow = dRow > 0 ? 1 : -1;
+    }
+    if (dCol !== 0) {
+      normalizedCol = dCol > 0 ? 1 : -1;
+    }
+    
+    // 計算目標後方位置（後方 = 目標位置 + 攻擊方向，繼續向前）
+    const backRow = targetRow + normalizedRow;
+    const backCol = targetCol + normalizedCol;
+    
+    console.log('攻擊方向:', normalizedRow, normalizedCol, '後方位置:', backRow, backCol);
+    
+    // 檢查後方是否有棋子
+    let hasPieceBehind = false;
+    if (isValidPosition(backRow, backCol)) {
+      const backPiece = board[backRow][backCol];
+      if (backPiece !== 'empty') {
+        hasPieceBehind = true;
+        console.log('目標後方有棋子:', backPiece, '位於 [', backRow, ',', backCol, ']');
+      }
+    }
+    
+    // 計算傷害：基礎100點 + 如果後方有棋子額外50點
+    let totalDamage = baseDamage;
+    if (hasPieceBehind) {
+      totalDamage += 50;
+      console.log('衝鋒突擊：後方有棋子，額外造成50點傷害，總傷害:', totalDamage);
+    } else {
+      console.log('衝鋒突擊：後方沒有棋子，造成', totalDamage, '點傷害，目標將退後一格');
+    }
+    
+    // 檢查目標是否有聖盾術或堅殼防禦等免疫效果
+    let actualDamage = totalDamage;
+    
+    // 檢查聖盾術
+    if (targetState && targetState.buffs) {
+      const holyShieldBuff = targetState.buffs.find(buff => 
+        buff.type === 'holy_shield' && buff.endTurn > currentTurn
+      );
+      
+      if (holyShieldBuff) {
+        console.log('衝鋒突擊：目標有聖盾術，抵擋所有傷害');
+        setPieceStates(prev => ({
+          ...prev,
+          [targetKey]: {
+            ...prev[targetKey],
+            buffs: prev[targetKey].buffs.filter(buff => buff.type !== 'holy_shield')
+          }
+        }));
+        return 'enemy_damaged';
+      }
+    }
+    
+    // 檢查堅殼防禦
+    if (targetState && targetState.buffs) {
+      const shellDefenseBuff = targetState.buffs.find(buff => 
+        buff.type === 'shell_defense' && buff.endTurn > currentTurn && buff.damageImmunity
+      );
+      
+      if (shellDefenseBuff) {
+        console.log('衝鋒突擊：目標有堅殼防禦，免疫所有傷害');
+        actualDamage = 0;
+      }
+    }
+    
+    // 造成傷害
+    const currentHealth = targetState?.health || getPieceHealth(targetPiece);
+    const newHealth = Math.max(0, currentHealth - actualDamage);
+    
+    console.log('衝鋒突擊造成傷害:', actualDamage, '目標血量:', currentHealth, '->', newHealth);
+    
+    // 更新目標血量
+    setPieceStates(prev => ({
+      ...prev,
+      [targetKey]: {
+        ...prev[targetKey],
+        health: newHealth,
+        hasBeenAttacked: true,
+        isInjured: newHealth < (prev[targetKey]?.maxHealth || getPieceMaxHealth(targetPiece))
+      }
+    }));
+    
+    // 如果目標血量歸零，處理擊敗
+    if (newHealth <= 0) {
+      const newBoard = board.map(row => [...row]);
+      newBoard[targetRow][targetCol] = 'empty';
+      setBoard(newBoard);
+      
+      setPieceStates(prev => {
+        const newStates = { ...prev };
+        delete newStates[targetKey];
+        return newStates;
+      });
+      
+      setPieceOwners(prev => {
+        const newOwners = { ...prev };
+        delete newOwners[targetKey];
+        
+        // 檢查遊戲是否結束
+        const gameEndResult = checkGameEnd(newBoard, newOwners);
+        if (gameEndResult.gameOver) {
+          Alert.alert(
+            '遊戲結束',
+            gameEndResult.winner === 'human' ? '你勝利了！' : 'AI勝利了！',
+            [{ text: '確定', onPress: () => console.log('遊戲結束:', gameEndResult.reason) }]
+          );
+        }
+        
+        return newOwners;
+      });
+      
+      // 移除衝鋒突擊buff（一次性效果）
+      setPieceStates(prev => ({
+        ...prev,
+        [attackerKey]: {
+          ...prev[attackerKey],
+          buffs: prev[attackerKey].buffs.filter(buff => buff.type !== 'charge_assault')
+        }
+      }));
+      
+      return 'enemy_defeated';
+    }
+    
+    // 如果後方沒有棋子，讓目標退後一格
+    if (!hasPieceBehind && isValidPosition(backRow, backCol)) {
+      console.log('衝鋒突擊：目標後方無棋子，將目標從 [', targetRow, ',', targetCol, '] 推至 [', backRow, ',', backCol, ']');
+      
+      // 移動目標棋子到後方位置
+      const newBoard = board.map(row => [...row]);
+      newBoard[backRow][backCol] = targetPiece;
+      newBoard[targetRow][targetCol] = 'empty';
+      setBoard(newBoard);
+      
+      // 更新棋子狀態
+      const newTargetKey = `${backRow}-${backCol}`;
+      setPieceStates(prev => {
+        const newStates = { ...prev };
+        if (newStates[targetKey]) {
+          newStates[newTargetKey] = { ...newStates[targetKey] };
+          delete newStates[targetKey];
+        }
+        return newStates;
+      });
+      
+      // 更新棋子擁有者
+      setPieceOwners(prev => {
+        const newOwners = { ...prev };
+        if (newOwners[targetKey]) {
+          newOwners[newTargetKey] = newOwners[targetKey];
+          delete newOwners[targetKey];
+        }
+        return newOwners;
+      });
+      
+      // 移除衝鋒突擊buff（一次性效果）
+      setPieceStates(prev => ({
+        ...prev,
+        [attackerKey]: {
+          ...prev[attackerKey],
+          buffs: prev[attackerKey].buffs.filter(buff => buff.type !== 'charge_assault')
+        }
+      }));
+      
+      return 'enemy_pushed_charge';
+    } else if (hasPieceBehind) {
+      // 後方有棋子，額外傷害已在上面計算並施加
+      console.log('衝鋒突擊：目標後方有棋子，額外傷害已造成，目標不退後');
+      
+      // 移除衝鋒突擊buff（一次性效果）
+      setPieceStates(prev => ({
+        ...prev,
+        [attackerKey]: {
+          ...prev[attackerKey],
+          buffs: prev[attackerKey].buffs.filter(buff => buff.type !== 'charge_assault')
+        }
+      }));
+      
+      return 'enemy_damaged_charge';
+    }
+    
+    // 移除衝鋒突擊buff（一次性效果）
+    setPieceStates(prev => ({
+      ...prev,
+      [attackerKey]: {
+        ...prev[attackerKey],
+        buffs: prev[attackerKey].buffs.filter(buff => buff.type !== 'charge_assault')
+      }
+    }));
+    
+    return 'enemy_damaged_charge';
   };
 
   const executeMove = (fromRow, fromCol, toRow, toCol) => {
@@ -2380,12 +2915,19 @@ const ChessBoard3D = ({ onBack, gameMode, playerDeck: initialPlayerDeck }) => {
         const newStates = { ...prev };
         if (newStates[oldKey]) {
           // 深拷貝棋子狀態，包括buffs和debuffs數組
-          newStates[newKey] = { 
+          const moveState = {
             ...newStates[oldKey],
             hasMoved: true, // 標記為已移動
             buffs: newStates[oldKey].buffs ? [...newStates[oldKey].buffs] : [],
             debuffs: newStates[oldKey].debuffs ? [...newStates[oldKey].debuffs] : []
           };
+          
+          // 保留主教形態屬性（如果有的話）
+          if (newStates[oldKey].bishopForm) {
+            moveState.bishopForm = newStates[oldKey].bishopForm;
+          }
+          
+          newStates[newKey] = moveState;
           console.log(`棋子移動: [${fromRow},${fromCol}] -> [${toRow},${toCol}], 設置hasMoved: true`);
           delete newStates[oldKey];
         }
@@ -2422,12 +2964,19 @@ const ChessBoard3D = ({ onBack, gameMode, playerDeck: initialPlayerDeck }) => {
           const newStates = { ...prev };
           if (newStates[oldKey]) {
             // 深拷貝棋子狀態，包括buffs和debuffs數組
-            newStates[newKey] = { 
+            const moveThroughState = {
               ...newStates[oldKey],
               hasMoved: true, // 標記為已移動
               buffs: newStates[oldKey].buffs ? [...newStates[oldKey].buffs] : [],
               debuffs: newStates[oldKey].debuffs ? [...newStates[oldKey].debuffs] : []
             };
+            
+            // 保留主教形態屬性（如果有的話）
+            if (newStates[oldKey].bishopForm) {
+              moveThroughState.bishopForm = newStates[oldKey].bishopForm;
+            }
+            
+            newStates[newKey] = moveThroughState;
             console.log(`棋子移動(穿過友方): [${fromRow},${fromCol}] -> [${toRow},${toCol}], 設置hasMoved: true`);
             delete newStates[oldKey];
           }
@@ -2477,6 +3026,8 @@ const ChessBoard3D = ({ onBack, gameMode, playerDeck: initialPlayerDeck }) => {
           setBoard(newBoard);
         
           const targetKey = `${toRow}-${toCol}`;
+          const attackerKey = `${fromRow}-${fromCol}`;
+          const attackerPiece = board[fromRow][fromCol];
         
         // 移除被擊敗的敵人
         setPieceStates(prev => {
@@ -2515,6 +3066,46 @@ const ChessBoard3D = ({ onBack, gameMode, playerDeck: initialPlayerDeck }) => {
           
           return newOwners;
         });
+        
+        // 檢查攻擊者是否為血誓魔徒，觸發擊殺後的技能效果
+        if (attackerPiece === 'BR') {
+          console.log('血誓魔徒擊殺效果觸發！');
+          const attackerState = pieceStates[attackerKey];
+          const attackerCurrentHealth = attackerState?.health || getPieceHealth(attackerPiece);
+          const attackerMaxHealth = attackerState?.maxHealth || getPieceMaxHealth(attackerPiece);
+          
+          // 血性咆哮：回復50血
+          const healedHealth = Math.min(attackerMaxHealth, attackerCurrentHealth + 50);
+          console.log(`血性咆哮：血誓魔徒回復50血，血量從 ${attackerCurrentHealth} 回復到 ${healedHealth}`);
+          
+          // 嗜戰本能：移動距離變為3格（添加buff）
+          setPieceStates(prev => ({
+            ...prev,
+            [attackerKey]: {
+              ...prev[attackerKey],
+              health: healedHealth,
+              // 嗜戰本能：移動距離永久變為3格（通過buff標記）
+              buffs: [...(prev[attackerKey]?.buffs || []), {
+                type: 'combat_instinct', // 嗜戰本能buff
+                moveBonus: 1, // 移動距離+1（從2變成3）
+                permanent: true // 永久效果
+              }]
+            }
+          }));
+          
+          // 血性咆哮：可再移動1格（標記可以額外移動）
+          setPieceStates(prev => ({
+            ...prev,
+            [attackerKey]: {
+              ...prev[attackerKey],
+              canExtraMove: true, // 標記可以額外移動
+              extraMoveRange: 1 // 額外移動距離1格
+            }
+          }));
+          
+          console.log('嗜戰本能：血誓魔徒移動距離變為3格');
+          console.log('血性咆哮：血誓魔徒可以額外移動1格');
+        }
         
         return 'attacked';
         }
@@ -2859,10 +3450,32 @@ const ChessBoard3D = ({ onBack, gameMode, playerDeck: initialPlayerDeck }) => {
       const isValidAttackAction = isValidAttack(selectedPiece, selectedPosition.row, selectedPosition.col, row, col, board, pieceOwners, currentPlayer, pieceStates);
       
       if (isValidMoveAction && piece === 'empty') {
-          // 檢查是否有足夠的行動點
-          if (!hasEnoughActionPoints('move')) {
-            Alert.alert('行動點不足', '移動需要3點行動點');
-            return;
+          // 檢查是否為額外移動（血誓魔徒擊殺後的額外移動）
+          const oldKey = `${selectedPosition.row}-${selectedPosition.col}`;
+          const pieceState = pieceStates[oldKey];
+          const isExtraMove = pieceState?.canExtraMove && pieceState?.extraMoveRange > 0;
+          
+          // 計算移動距離
+          const moveDistance = Math.abs(row - selectedPosition.row) + Math.abs(col - selectedPosition.col);
+          
+          // 如果是額外移動，檢查移動距離是否在額外移動範圍內
+          if (isExtraMove) {
+            if (moveDistance <= pieceState.extraMoveRange) {
+              // 額外移動，不消耗行動點
+              console.log('血性咆哮：血誓魔徒額外移動1格，不消耗行動點');
+            } else {
+              // 超出額外移動範圍，視為普通移動，需要行動點
+              if (!hasEnoughActionPoints('move')) {
+                Alert.alert('行動點不足', '移動需要3點行動點');
+                return;
+              }
+            }
+          } else {
+            // 普通移動，需要檢查行動點
+            if (!hasEnoughActionPoints('move')) {
+              Alert.alert('行動點不足', '移動需要3點行動點');
+              return;
+            }
           }
           
           const newBoard = board.map(row => [...row]);
@@ -2871,16 +3484,29 @@ const ChessBoard3D = ({ onBack, gameMode, playerDeck: initialPlayerDeck }) => {
           setBoard(newBoard);
           
           const newKey = `${row}-${col}`;
-          const oldKey = `${selectedPosition.row}-${selectedPosition.col}`;
           setPieceStates(prev => {
             const newStates = { ...prev };
             if (newStates[oldKey]) {
               // 深拷貝棋子狀態，包括buffs和debuffs數組
-              newStates[newKey] = { 
+              const newState = {
                 ...newStates[oldKey],
                 buffs: newStates[oldKey].buffs ? [...newStates[oldKey].buffs] : [],
                 debuffs: newStates[oldKey].debuffs ? [...newStates[oldKey].debuffs] : []
               };
+              
+              // 保留主教形態屬性（如果有的話）
+              if (newStates[oldKey].bishopForm) {
+                newState.bishopForm = newStates[oldKey].bishopForm;
+              }
+              
+              // 清除額外移動標記（如果使用了額外移動）
+              if (isExtraMove && moveDistance <= pieceState.extraMoveRange) {
+                delete newState.canExtraMove;
+                delete newState.extraMoveRange;
+                console.log('血性咆哮：清除額外移動標記');
+              }
+              
+              newStates[newKey] = newState;
               delete newStates[oldKey];
             }
             return newStates;
@@ -2897,8 +3523,10 @@ const ChessBoard3D = ({ onBack, gameMode, playerDeck: initialPlayerDeck }) => {
             return newOwners;
           });
           
-          // 消耗行動點
-          consumeActionPoints('move');
+          // 只有在非額外移動或超出額外移動範圍時才消耗行動點
+          if (!isExtraMove || moveDistance > pieceState.extraMoveRange) {
+            consumeActionPoints('move');
+          }
           
           
           // 移動成功，不自動切換回合，等待玩家點擊結束回合按鈕
@@ -2939,14 +3567,33 @@ const ChessBoard3D = ({ onBack, gameMode, playerDeck: initialPlayerDeck }) => {
                     ]
                   );
                 }
+                
+              // 延遲檢查血誓魔徒的額外移動機會（確保狀態已更新）
+              setTimeout(() => {
+                const attackerKey = `${selectedPosition.row}-${selectedPosition.col}`;
+                const attackerState = pieceStates[attackerKey];
+                if (attackerState?.canExtraMove) {
+                  // 保持選中狀態，允許額外移動
+                  console.log('血性咆哮：保持血誓魔徒選中狀態，可以額外移動');
+                  // 不清除選中狀態，讓玩家可以繼續移動
+                  // 不執行setSelectedPiece(null)，讓玩家可以繼續移動
+                } else {
+                  // 沒有額外移動機會，清除選中狀態
+                  setSelectedPiece(null);
+                  setSelectedPosition(null);
+                }
+              }, 100);
+            } else {
+              // 其他情況，清除選中狀態
+              setSelectedPiece(null);
+              setSelectedPosition(null);
             }
           });
         } else {
           // 不能攻擊己方棋子
+          setSelectedPiece(null);
+          setSelectedPosition(null);
         }
-      
-      setSelectedPiece(null);
-      setSelectedPosition(null);
     } else if (piece !== 'empty' && !isEnemyPiece(row, col)) {
       // 檢查是否為牆壁衍生物（無法選擇）
       const pieceKey = `${row}-${col}`;
@@ -2985,12 +3632,18 @@ const ChessBoard3D = ({ onBack, gameMode, playerDeck: initialPlayerDeck }) => {
     // 檢查是否有雷電效果
     const hasLightningEffect = pieceStates[`${row}-${col}`]?.lightningEffect;
     if (piece === 'empty') {
+      // 檢查是否為技能目標或卡牌查看時的高亮
+      const isSkillTargetEmpty = isSelectingTarget && pendingSkillCard && skillTargets.some(target => target.row === row && target.col === col);
+      const isCardViewHighlightEmpty = isHighlighted && selectedCard && !isSelectingTarget;
+      
       return (
         <TouchableOpacity
           style={[
             styles.cell,
             {
-              backgroundColor: isHighlighted ? '#85C1E9' : 
+              backgroundColor: isSkillTargetEmpty ? '#FFD700' : // 技能目標用黃色背景
+                isCardViewHighlightEmpty ? '#FFD700' : // 卡牌查看時用黃色背景
+                isHighlighted ? '#85C1E9' : // 普通高亮用藍色背景
                 (row + col) % 2 === 0 ? '#F5DEB3' : '#8B4513',
               width: CELL_SIZE,
               height: CELL_SIZE,
@@ -3003,6 +3656,23 @@ const ChessBoard3D = ({ onBack, gameMode, playerDeck: initialPlayerDeck }) => {
 
     // 檢查是否為技能目標
     const isSkillTarget = isSelectingTarget && pendingSkillCard && skillTargets.some(target => target.row === row && target.col === col);
+    
+    // 檢查是否為卡牌查看時的高亮（黃色）
+    const isCardViewHighlight = isHighlighted && selectedCard && !isSelectingTarget;
+    
+    // 檢查是否為草地格子
+    const tileKey = `${row}-${col}`;
+    const isGrassTile = grassTiles.has(tileKey);
+    
+    // 根據是否為草地格子決定背景色
+    let baseBackgroundColor;
+    if (isGrassTile) {
+      // 草地格子使用綠色系背景
+      baseBackgroundColor = (row + col) % 2 === 0 ? '#90EE90' : '#228B22';
+    } else {
+      // 普通格子
+      baseBackgroundColor = (row + col) % 2 === 0 ? '#F5DEB3' : '#8B4513';
+    }
 
     return (
       <TouchableOpacity
@@ -3010,8 +3680,9 @@ const ChessBoard3D = ({ onBack, gameMode, playerDeck: initialPlayerDeck }) => {
           styles.cell,
           {
             backgroundColor: isSkillTarget ? '#FFD700' : // 技能目標用黃色背景
+              isCardViewHighlight ? '#FFD700' : // 卡牌查看時用黃色背景
               isHighlighted ? '#E74C3C' : // 普通高亮用紅色背景
-              (row + col) % 2 === 0 ? '#F5DEB3' : '#8B4513',
+              baseBackgroundColor, // 使用基礎背景色（草地或普通）
             width: CELL_SIZE,
             height: CELL_SIZE,
           },
@@ -3027,7 +3698,7 @@ const ChessBoard3D = ({ onBack, gameMode, playerDeck: initialPlayerDeck }) => {
           <PieceManager 
             piece={piece}
             isSelected={isSelected}
-            isHighlighted={isHighlighted && !isSkillTarget} // 技能目標時不使用普通高亮
+            isHighlighted={(isHighlighted && !isSkillTarget) || isCardViewHighlight} // 技能目標和卡牌查看時顯示高亮
             isSkillTarget={isSkillTarget}
             currentHealth={pieceStates[`${row}-${col}`]?.health}
             maxHealth={pieceStates[`${row}-${col}`]?.maxHealth}
@@ -3046,6 +3717,13 @@ const ChessBoard3D = ({ onBack, gameMode, playerDeck: initialPlayerDeck }) => {
           {hasLightningEffect && (
             <View style={styles.lightningEffectOverlay}>
               <Text style={styles.lightningIcon}>⚡</Text>
+            </View>
+          )}
+          
+          {/* 草地效果顯示 */}
+          {isGrassTile && (
+            <View style={styles.grassEffectOverlay}>
+              <Text style={styles.grassIcon}>🌿</Text>
             </View>
           )}
         </View>
@@ -3083,9 +3761,6 @@ const ChessBoard3D = ({ onBack, gameMode, playerDeck: initialPlayerDeck }) => {
       
       <Text style={styles.title}>戰棋大師</Text>
       
-      {/* 檢測受傷棋子按鈕 */}
-      {addInjuredCheckButton()}
-      
       
       <View style={styles.turnIndicator}>
         <Text style={[
@@ -3121,10 +3796,23 @@ const ChessBoard3D = ({ onBack, gameMode, playerDeck: initialPlayerDeck }) => {
                     isSelected={selectedPosition && selectedPosition.row === rowIndex && selectedPosition.col === colIndex}
                     currentTurn={currentTurn}
                     pieceStates={pieceStates}
+                    isGrassTile={grassTiles.has(`${rowIndex}-${colIndex}`)}
                     isHighlighted={(() => {
                       // 如果正在選擇技能卡牌目標
                       if (isSelectingTarget && pendingSkillCard) {
                         return skillTargets.some(target => target.row === rowIndex && target.col === colIndex);
+                      }
+                      
+                      // 如果點擊卡牌查看，高亮顯示對應的棋子
+                      if (selectedCard && !isSelectingTarget && selectedCard.requiredPieces && selectedCard.requiredPieces.length > 0) {
+                        const piece = board[rowIndex][colIndex];
+                        const pieceKey = `${rowIndex}-${colIndex}`;
+                        const pieceOwner = pieceOwners[pieceKey];
+                        
+                        // 如果是玩家的棋子且匹配卡牌的 requiredPieces
+                        if (piece !== 'empty' && pieceOwner === 'human' && selectedCard.requiredPieces.includes(piece)) {
+                          return true;
+                        }
                       }
                       
                       // 如果選中的是空格子，不顯示高亮
@@ -3190,6 +3878,7 @@ const ChessBoard3D = ({ onBack, gameMode, playerDeck: initialPlayerDeck }) => {
         aiPlayedCard={aiPlayedCard}
         showAiPlayedCard={showAiPlayedCard}
         actionPoints={actionPoints}
+        onSwapCards={handleSwapCards}
       />
       
     </View>
@@ -3420,6 +4109,21 @@ const styles = StyleSheet.create({
     textShadowRadius: 10,
   },
   // 雷電效果樣式
+  grassEffectOverlay: {
+    position: 'absolute',
+    top: 0,
+    left: 0,
+    right: 0,
+    bottom: 0,
+    justifyContent: 'center',
+    alignItems: 'center',
+    pointerEvents: 'none',
+    zIndex: 1,
+  },
+  grassIcon: {
+    fontSize: CELL_SIZE * 0.4,
+    opacity: 0.6,
+  },
   lightningEffectOverlay: {
     position: 'absolute',
     top: -15,
